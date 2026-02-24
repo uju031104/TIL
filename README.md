@@ -11,3 +11,8 @@ velog와 github 같이 활용
 ### C, C++
 
 <https://velog.io/@uju031104/posts>
+
+***
+
+### CS
+논리연산자, 비트 연산자, 논리적 동치 등
