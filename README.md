@@ -1,7 +1,29 @@
 # TIL
-매일 배운것들 간단하게 정리  
+배운 내용에서 특히 중요한 내용/심화 부분을 중점으로 정리   
+>현재 TIL 전반적으로 수정중
+
   
-***
+---
+---
+
+### C
+
+[스택 메모리(StackMemory)](/C/StackMemory.md)  
+[비트 연산자(Bit-wise_Operator)](/C/Bitwise_Operator.md)  
+[구조체(Structure)](/C/Structure.md)   
+   
+
+---
+---
+
+### C++
+
+
+
+
+---
+---
+
 ### UE5
 
 언리얼엔진 툴 익숙해지기  
@@ -12,29 +34,9 @@
 블루프린트 클래스로 플레이어 캐릭터/메시/카메라/이동/화면/점프 세팅   
 레벨 디자인하기
 
-언리얼엔진 사전캠프 ~ 1-8
+언리얼엔진 사전캠프 챕터1
 
-***
-
-### C, C++
-
-<https://velog.io/@uju031104/posts>
-
-C언어 기본  
-Chapter1 환경설정    
-Chapter2 연산자    
-Chapter3 조건문    
-Chapter4 반복문    
-Chapter5 배열
-Chapter6 함수
-Chapter7 포인터
-
-
-C언어 심화   
-Chapter2 비트 논리 연산자, 비트 이동 연산자
-Chapter6 스택 프레임
-
-***
+---
+---
 
 ### CS
-논리연산자, 비트 연산자, 논리적 동치
