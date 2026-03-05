@@ -47,5 +47,5 @@ int main() {
 ### 참고 사항
 
 ```c
-arr[k] = *(arr + k)
+arr[k] == *(arr + k)
 ```
