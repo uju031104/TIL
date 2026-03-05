@@ -7,26 +7,29 @@ Asterisk *
 Pros and Cons 장단점   
 advocate 지지하다   
 stumble 실수하다, 넘어지다, 실책   
+
 vast 대단한   
 contradict 모순되다   
 implementation 구현   
 implement 구현하다   
 execute '계획대로' 수행하다, 실행하다    
 compatible 호환가능
-compare(to/with), comparison 비교하다, 비교
-derived 파생된
-deprived 박탈된, 빼앗긴
-configure 설정하다
-submit 제출하다
-submission 제출
-commit 저지르다
-aggregate 합치다, 집계하다
-designate 가리키다, 지정된(ed)
-indicate 가리키다
-contribute 기여하다
-descend 하강하다
-descendant 자손
-ascend 상승하다
+compare(to/with) ,comparison 비교하다, 비교   
+
+derived 파생된   
+deprived 박탈된, 빼앗긴   
+configure 설정하다   
+submit 제출하다   
+submission 제출   
+commit 저지르다   
+
+aggregate 합치다, 집계하다   
+designate 가리키다, 지정된(ed)   
+indicate 가리키다   
+contribute 기여하다   
+descend 하강하다   
+descendant 자손   
+ascend 상승하다   
 
 numerator 분자
 denominator 분모
