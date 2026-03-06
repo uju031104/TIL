@@ -30,6 +30,47 @@ cpu는 대략 `1초에 1억번`의 연산을 시행한다.
 
 <br/>
 
+<table border="2">
+    <tr align = "center">
+        <td colspan = "2">1초에 1억번 가정</td>
+    </tr>
+    <tr align = "center">
+        <td colspan = "1">시간 복잡도</td>
+        <td colspan = "1">최대 연산 횟수</td>
+    </tr>
+    <tr align = "center">
+        <td>O(N!)</td>
+        <td>10</td>
+    </tr>
+    <tr align = "center">
+        <td>O(2^n)</td>
+        <td>20~25</td>
+    </tr>
+    <tr align = "center">
+        <td>O(N^3)</td>
+        <td>200~300</td>
+    </tr>
+    <tr align = "center">
+        <td>O(N^2)</td>
+        <td>3,000~5,000</td>
+    </tr>
+    <tr align = "center">
+        <td>O(NlogN)</td>
+        <td>100만</td>
+    </tr>
+    <tr align = "center">
+        <td>O(N)</td>
+        <td>1000~2000만</td>
+    </tr>
+    <tr align = "center">
+        <td>O(logN)</td>
+        <td>10억</td>
+    </tr>
+</table>
+
+
+<br/>
+
 ***
 
 <br/>
@@ -60,3 +101,4 @@ int main()
     return 0;
 }
 ```
+

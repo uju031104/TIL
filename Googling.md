@@ -13,7 +13,7 @@ contradict 모순되다
 implementation 구현   
 implement 구현하다   
 execute '계획대로' 수행하다, 실행하다    
-compatible 호환가능
+compatible 호환가능   
 compare(to/with) ,comparison 비교하다, 비교   
 
 derived 파생된   

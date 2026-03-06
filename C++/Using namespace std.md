@@ -38,6 +38,8 @@ std::endl
 
 #include <string>
 std::string
+std::toupper
+std::tolower
 
 #include <vector>
 std::vector
