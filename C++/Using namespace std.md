@@ -43,4 +43,9 @@ std::tolower
 
 #include <vector>
 std::vector
+
+#include <memory>
+std::unique_ptr
+std::shared_ptr
+std::weak_ptr
 ```
