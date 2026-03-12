@@ -33,10 +33,10 @@
     <tr> <td>numerator           </td> <td>분자</td> </tr>
     <tr> <td>denominator         </td> <td>분모</td> </tr>
     <tr> <td>manipulate          </td> <td>조작하다</td> </tr>
-    <tr> <td>                    </td> <td></td> </tr>
-    <tr> <td>                    </td> <td></td> </tr>
-    <tr> <td>                    </td> <td></td> </tr>
-    <tr> <td>                    </td> <td></td> </tr>
+    <tr> <td>deduction           </td> <td>추론</td> </tr>
+    <tr> <td>yield               </td> <td>생산하다</td> </tr>
+    <tr> <td>iterator            </td> <td>반복자</td> </tr>
+    <tr> <td>          </td> <td></td> </tr>
     <tr> <td>                    </td> <td></td> </tr>
 </table>
 
@@ -50,3 +50,7 @@ Semantics: 의미론
 
 Coding Convention   
 가독성, 유지보수, 협업 생산성을 위해 코드 작성 규칙(네이밍, 들여쓰기, 주석 등)을 통일하는 스타일 규약
+
+assignment
+일상용어로는 업무, 과제라는 뜻을 나타내지만 프로그래밍 용어로는 대입, 할당을 말한다.
+assign : 대입하다, 할당하다
