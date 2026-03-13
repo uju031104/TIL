@@ -38,6 +38,7 @@
 [스마트 포인터(Smart Pointer)](/C++/Smart%20Pointer.md)   
 [얕은 복사와 깊은 복사(Shallow Copy and Deep Copy)](/C++/Shallow%20Copy%20and%20Deep%20Copy.md)   
 [제이슨 파일(Json)](/C++/Json.md)   
+[람다 표현법(Lambda Expression)](/C++/Lambda%20Expressions.md)   
 
 ### Class
 [인스턴스(Instance)](/C++/Class/Instance.md)    
@@ -49,6 +50,7 @@
 
 [싱글톤(Singleton)](/C++/Design%20Pattern/Singleton.md)   
 [데코레이터(Decorator)](/C++/Design%20Pattern/Singleton.md)   
+[옵저버(Observer)](/C++/Design%20Pattern/Observer.md)   
 
 
 <br/>

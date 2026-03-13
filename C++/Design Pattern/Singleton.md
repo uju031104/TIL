@@ -2,6 +2,8 @@
 
 <br/>
 
+생성 패턴(Creational Patterns)중 하나
+
 ### Meyers' Singleton(C++ 11 이상)   
 
 정적 지역 변수 방식이다.   

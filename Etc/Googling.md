@@ -36,7 +36,7 @@
     <tr> <td>deduction           </td> <td>추론</td> </tr>
     <tr> <td>yield               </td> <td>생산하다</td> </tr>
     <tr> <td>iterator            </td> <td>반복자</td> </tr>
-    <tr> <td>          </td> <td></td> </tr>
+    <tr> <td>condiment           </td> <td>첨가물, 조미료</td> </tr>
     <tr> <td>                    </td> <td></td> </tr>
 </table>
 

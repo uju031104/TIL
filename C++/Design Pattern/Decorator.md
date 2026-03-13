@@ -2,6 +2,8 @@
 
 <br/>
 
+구조 패턴(Structure Patterns)중 하나
+
 ```cpp
 #include <iostream>
 #include <string>
