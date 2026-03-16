@@ -50,3 +50,37 @@ vector<vector<int>> solution(vector<vector<int>> arr1, vector<vector<int>> arr2)
     return answer;
 }
 ```
+
+<br/>
+
+***
+
+<br/>
+
+### 자료형 확인
+
+코드카타 3진법 뒤집기 문제에서 생긴 오류
+
+```cpp
+for(auto i : reverse)
+{
+    answer += (i * pow(3, num));
+    cout << i * pow(3, num) << " ";
+    --num;
+}
+
+```
+
+pow는 기본적으로 double형을 반환한다.   
+그래서 값이 커지는 순간(체감상 100만단위?) 7.74841e+08 막 이런식으로 나와버린다.
+위의 코드를 제대로 실행하게 하려면 아래와 같이 바꿔야함
+  
+```cpp
+for(auto i : reverse)
+{
+    answer += (i * (int)pow(3, num));
+    cout << i * (int)pow(3, num) << " ";
+    --num;
+}
+
+```
