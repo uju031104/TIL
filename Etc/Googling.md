@@ -54,3 +54,20 @@ Coding Convention
 assignment
 일상용어로는 업무, 과제라는 뜻을 나타내지만 프로그래밍 용어로는 대입, 할당을 말한다.
 assign : 대입하다, 할당하다
+
+'횟수'의 상황에 따라 다른 영어 표기   
+Count: 몇 번 일어났는가 (Death Count, Hit Count)   
+
+Times: 몇 배 혹은 몇 번 (3 times, Many times)    
+
+Frequency: 빈도 (일정 시간동안)   
+
+Occurrence: 발생 횟수 (특정 사건이 터진 '사례'의 수)   
+
+Attempts: 시도 횟수 (가챠/로그인 시도 횟수)   
+
+Rounds / Waves: 반복되는 판수, 몰려오는 적의 차례   
+
+Iteration: 반복 회차
+
+
