@@ -19,7 +19,7 @@
   <summary><s>26.03.10</s></summary>
   <p>     
 
-### 26.03.10
+### 03.10
 
 VSCode json 파일 다루는 법 공부(분할 컴파일 경로 오류때문에... 근데 경로 오류는 아니었음)
 include된 파일 범위, 컴파일 종류(나는 gcc 사용), 버전 등등 정보를 직접 수정할 수 있음
@@ -268,7 +268,7 @@ cpp 4번째 과제 시작
 <!----------------------------- 26.03.16 ------------------------------>
 
 <details>
-  <summary>26.03.16</summary>
+  <summary><s>26.03.16</s></summary>
   <p>
 
 ### 03.16
@@ -408,5 +408,90 @@ FString 앞에 * 를 붙이면?
 
 루프안에서 sleep(), delay()등을 쓰면 루프문 안에 있는동안 화면이 멈춘다. 그래서 비동기적인 방식인 타이머를 사용
 
+  </p>
+</details>
+
+<!----------------------------- 26.03.18 ------------------------------>
+
+<details>
+  <summary>26.03.18</summary>
+  <p>
+
+### 03.18
+
+cpp 5번째 과제 제출 완료   
+<br/>
+
+***
+
+cpp 코테 완전정복 2-4, 2-5, 3-1, 3-2
+
+**코테 시간복잡도 관련 팁**   
+문자열 '+'와 '+='의 성능 차이가 심하다.   
+str = str + " ";   
+str += " ";   
+첫 번째는 문자열을 새로 만들어서 O(n)      
+두 번째는 덧붙이는 방식이라 O(1)에 가깝다.   
+
+for(auto a : ...)   
+for(auto& a : ...)   
+첫 번째는 복사를 해서 더 오래걸린다.   
+참조 방식을 추천한다.   
+<br/>
+
+***
+unique()
+연속된 중복 요소들을 제거한다. 단, 실제로 제거하는건 아니고 중복되는 원소를 뒤로 다 밀어넣는다.(실제 반환값은 뒤로 밀려진 중복값중 첫번째 위치) 따라서 erase()를 함께 써야 실제로 지워진다.   
+
+```cpp
+//erase(), unique()예시
+#include <vector>
+#include <algorithm> // sort, unique를 위해 선언
+
+using namespace std;
+
+bool compare(int a, int b) { // 정렬 기준 정의
+    return a > b; 
+}
+
+vector<int> solution(vector<int> lst) {
+    sort(lst.begin(), lst.end(), compare); // 내림차순으로 정렬
+    lst.erase(unique(lst.begin(), lst.end()), lst.end()); // 중복값 제거
+
+    return lst;
+}
+```
+<br/>
+
+***
+모듈러 연산으로 반복 패턴 표현   
+```cpp
+// 모듈러 연산 반복패턴 예시
+...
+    for (size_t i = 0; i < answer1.size(); ++i)
+    {
+
+        if (answer1[i] == SuPoJa1[i % SuPoJa1.size()])
+        {
+            Score[0] += 1;
+        }
+        if (answer1[i] == SuPoJa2[i % SuPoJa2.size()])
+        {
+            Score[1] += 1;
+        }
+        if (answer1[i] == SuPoJa3[i % SuPoJa3.size()])
+        {
+            Score[2] += 1;
+        }
+    }
+...
+// 수포자1~ 3벡터의 사이즈 만큼 반복하게 함
+```
+
+벡터로 변환
+```cpp
+// sum은 set<int>
+vector<int> answer(sum.begin(), sum.end()); // 반환타입을 맞추기 위헤 벡터로 변환
+```
   </p>
 </details>

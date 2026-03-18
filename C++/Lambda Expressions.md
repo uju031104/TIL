@@ -18,4 +18,6 @@ void compareMovies(vector<Movie> &movies)
              return false;
          });
 }
+
+// 람다식 외부의 값을 넣고 싶을때는 []에 변수명을 넣으면 사용할 수 있다.
 ```
