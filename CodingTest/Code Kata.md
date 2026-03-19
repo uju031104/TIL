@@ -1,5 +1,4 @@
 # 코드카타 (Code Kata)
-일단 초반엔 여기에 정리
 
 <br/>
 
@@ -84,3 +83,5 @@ for(auto i : reverse)
 }
 
 ```
+
+
