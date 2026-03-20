@@ -109,3 +109,4 @@ vector<int> solution(vector<int> lst) {
 // sum은 set<int>
 vector<int> answer(sum.begin(), sum.end()); // 반환타입을 맞추기 위헤 벡터로 변환
 ```
+

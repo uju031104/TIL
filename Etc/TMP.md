@@ -523,6 +523,47 @@ TIL, TMP파일 정리 안된거 싹 다 정리
 
 ### 03.20
 
+cpp 코테 완전정복 3-4   
+정렬 복습
+
+
+```cpp
+//코드카타 명예의 전당(1)
+#include <string>
+#include <vector>
+#include <set>
+#include <algorithm>
+
+using namespace std;
+
+vector<int> solution(int k, vector<int> score) {
+    vector<int> answer;
+    vector<int> tmp_vec;
+    int index = 0;
+    
+    for(int value : score)
+    {
+        tmp_vec.push_back(value);
+        sort(tmp_vec.begin(), tmp_vec.end());
+        
+        if(tmp_vec.size() < k)
+        {
+            answer.push_back(tmp_vec[0]);
+        }
+        else
+        {
+            answer.push_back(tmp_vec[tmp_vec.size() - k]);
+        }
+        
+        ++index;
+    }
+    
+    
+    return answer;
+}
+// 벡터의 제일 오른쪽 값 3개가 크기순인걸로 풀었는데 이렇게 하면 나중에 tmp 벡터가 너무 길어져서 시간이 오래 걸린다. pop_back()을 활용하는게 좋다.
+
+```
   
   </p>
 </details>
