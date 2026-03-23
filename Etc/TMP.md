@@ -518,7 +518,7 @@ TIL, TMP파일 정리 안된거 싹 다 정리
 <!----------------------------- 26.03.20 ------------------------------>
 
 <details>
-  <summary>26.03.20</summary>
+  <summary><s>26.03.20</s></summary>
   <p>
 
 ### 03.20
@@ -565,5 +565,171 @@ vector<int> solution(int k, vector<int> score) {
 
 ```
   
+  </p>
+</details>
+
+<!----------------------------- 26.03.23 ------------------------------>
+
+<details>
+  <summary>26.03.23</summary>
+  <p>
+
+### 03.23
+
+시뮬레이션, 스택, 큐
+
+
+### bitset   
+
+```cpp
+// 비트셋을 이용하면 이진수 변환을 엄청 쉽게 할 수 있다. 아래에 나오는 substr() 활용하는법도 기억해두면 엄청 좋을듯.
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <bitset>
+#include <iterator>
+#include <iostream>
+
+using namespace std;
+
+vector<int> solution(string s) {
+  int transforms = 0;
+  int removedZeros = 0;
+  // s가 “1”이 될때까지 계속 반복
+  while (s != "1") {
+    transforms++;
+
+    // '0' 개수를 세어 removedZeros에 누적
+    removedZeros += count(s.begin(), s.end(), '0');
+
+    // '1' 개수를 세고, 이를 이진수로 변환
+    int onesCount = count(s.begin(), s.end(), '1');
+    s = bitset<32>(onesCount).to_string();
+    cout << s << endl;
+    // s는 총 32비트라서 0000... 0110 이런식으로 나오게 된다. 따라서 밑에 코드로 앞에 0을 지워주는 방식을 택했다.
+    s = s.substr(s.find('1'));
+    // 처음으로 1이 나온 곳 부터 부분문자열로 만들어서 s에 저장한다. 
+  }
+
+  return {transforms, removedZeros};
+}
+
+using namespace std;
+
+void print(vector<int> vec)
+{
+  copy(vec.begin(), vec.end(), std::ostream_iterator<int>(cout, " "));
+  cout << endl;
+}
+
+int main()
+{
+  print(solution("110010101001")); // 출력값 : 3 8
+  print(solution("01110")); // 출력값 : 3 3
+  print(solution("1111111")); // 출력값 : 4 1
+  
+  return 0;
+}
+```
+  
+<br/> 
+
+***
+
+<br/> 
+
+### 스택
+```cpp
+// 이 문제를 스택으로 풀어야 한다고 생각하고 접근했는데도 어떻게 해야할지 감이 안잡혔음. 이중 반복문으로 풀면 너무 쉬운 문제지만 시간복잡도 제한이 걸리면 이렇게 다른 방식으로 풀어야함.
+// 특히 스택을 활용하면서 index 값을 넣는 방식을 쓴 것이 엄청 참신했음. 
+// 현재값과 이전값을 비교할때 스택의 top()을 이전 값으로 활용
+#include <iostream>
+#include <vector>
+#include <stack>
+
+int main()
+{
+    std::stack<int> stack_index;
+    std::vector<int> prices = {1, 2, 3, 2, 3};
+    std::vector<int> result(prices.size());
+
+    for (int i = 0; i < prices.size(); i++)
+    {
+        while (!stack_index.empty() && prices[i] < prices[stack_index.top()])
+        {
+            result[stack_index.top()] = i - stack_index.top();
+            stack_index.pop();
+        }
+        stack_index.push(i);
+    }
+
+    while (!stack_index.empty())
+    {
+        result[stack_index.top()] = prices.size() - stack_index.top() - 1;
+        stack_index.pop();
+    }
+
+    for (int i : result)
+    {
+        std::cout << i << " ";
+    }
+
+    return 0;
+}
+
+```
+
+<br/> 
+
+***
+
+<br/>
+
+### 큐
+
+```cpp
+// 오늘 코드카타로 풀었던 문제였는데 강의 듣다가 나옴. 코드카타에서 풀었을땐 직접적으로 큐를 이용하진 않고 의도치 않게 큐의 원리를 이용해서 풀었는데 마침 또 나와줘서 큐로 풀어봤음. 쉬운 문제라서 금방함. 강의 풀이에서는 goal까지 큐에 넣어서 활용했는데 굳이? 싶긴한데 더 깔끔하긴 할듯?
+#include <iostream>
+#include <queue>
+
+std::string solution(std::vector<std::string> cards1, std::vector<std::string> cards2, std::vector<std::string> goal)
+{
+    std::queue<std::string> cards1_queue;
+    std::queue<std::string> cards2_queue;
+    for (std::string str : cards1)
+    {
+        cards1_queue.push(str);
+    }
+    for (std::string str : cards2)
+    {
+        cards2_queue.push(str);
+    }
+    for (std::string str : goal)
+    {
+        if (!cards1_queue.empty() && str == cards1_queue.front())
+        {
+            cards1_queue.pop();
+        }
+        else if (!cards2_queue.empty() && str == cards2_queue.front())
+        {
+            cards2_queue.pop();
+        }
+        else
+        {
+            return "No";
+        }
+    }
+    return "Yes";
+}
+
+int main()
+{
+    std::cout << solution({"i", "drink", "water"}, {"want", "to"}, {"i", "want", "to", "drink", "water"}) << std::endl; // "Yes"
+    std::cout << solution({"i", "water", "drink"}, {"want", "to"}, {"i", "want", "to", "drink", "water"}) << std::endl; // "No"
+    return 0;
+}
+
+```
+
   </p>
 </details>
