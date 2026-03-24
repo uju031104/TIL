@@ -42,12 +42,15 @@
 [람다 표현법(Lambda Expression)](/C++/Lambda%20Expressions.md)   
 
 ### Class
+>C++의 Class와 관련된 정보 정리
+
 [인스턴스(Instance)](/C++/Class/Instance.md)    
 [상속(Inheritance)](/C++/Class/Inheritance.md)   
 [업캐스팅(Upcasting)](/C++/Class/Upcasting.md)   
 [복사생성자와 대입연산자(Copy Constructor and Assignment Operator)](/C++/Class/Copy%20Constructor%20and%20Assignment%20Operator.md)   
 
 ### Design Pattern
+> 디자인 패턴 정리
 
 [싱글톤(Singleton)](/C++/Design%20Pattern/Singleton.md)   
 [데코레이터(Decorator)](/C++/Design%20Pattern/Singleton.md)   
@@ -57,10 +60,10 @@
 <br/>
 <br/>
 
-## CS
+## Data Structure and Algorithms
 
-#### 알고리즘 기초(Basic Algorithms)
->알고리즘 기초내용 정리
+#### Basic
+>자료구조/알고리즘 기초
 
 [시간복잡도(Time Complexity)](/CS/Algorithms/Basic/Time%20Complexity.md)   
 [값에 의한 호출(Call by Value)](/CS/Algorithms/Basic/Call%20by%20Value.md)   
@@ -68,13 +71,14 @@
 [최대공약수(GCD: Greatest Common Divisor)](/CS/Algorithms/Basic/GCD.md)   
 [분할 상환 분석(Amortized Analysis)](/CS/Algorithms/Basic/Amortized%20Analysis.md)   
 [정렬(Sort)](/CS/Algorithms/Basic/Sort.md)   
+[트리(Tree)](/Data%20Structure%20and%20Algorithms/Basic/Tree.md)   
 
 
 <br/>
 <br/>
 
-#### 알고리즘 심화(Advanced Algorithms)
->알고리즘 심화내용 정리
+#### Advanced
+>자료구조/알고리즘 심화
 
 
 <br/>
@@ -84,6 +88,7 @@
 >코딩테스트 관련 팁과 못 풀었던 문제 정리
 
 [코드 카타(Code Kata)](/CodingTest/Code%20Kata.md)   
+[코테 정복 강의](/CodingTest/CodingTestConquer.md)   
 
 
 <br/>

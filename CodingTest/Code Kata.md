@@ -128,4 +128,95 @@ vector<int> solution(int k, vector<int> score) {
 }
 // 벡터의 제일 오른쪽 값 3개가 크기순인걸로 풀었는데 이렇게 하면 나중에 tmp 벡터가 너무 길어져서 시간이 오래 걸린다. pop_back()을 활용하는게 좋다. 
 // 우선순위큐를 사용하면 더 깔끔하게 가능하다. 우선순위 큐를 배우고 나서 다시 해보기
+// 심지어 index는 사용하지 않았는데 적어놨네
+// <set>도 안씀
 ```
+
+### 명예의 전당(1) 수정본
+
+```cpp
+#include <vector>
+#include <queue>
+#include <functional> // greater
+
+using namespace std;
+
+vector<int> solution(int k, vector<int> score)
+{
+    vector<int> answer;
+    priority_queue<int, vector<int>, greater<int>> honor;
+
+    for (int value : score)
+    {
+        honor.push(value);
+        
+        if(honor.size() > k)
+        {
+            honor.pop();
+        }
+        answer.push_back(honor.top());
+    }
+
+    return answer;
+}
+/* 
+위 코드와 비교했을때 매우매우매우 깔끔해짐
+우선순위큐는 기본적으로 내림차순 정렬을 해준다.
+그리고 일반 queue와 다르게 top()으로 우선순위 값을 반환한다.
+기본 우선순위큐는 top()을 실행 시 가장 앞에 있으면서 가장 큰 값을 반환
+위 처럼 greater를 써주면 가장 작은 값을 반환한다.
+*/
+```
+
+<br/>
+
+***
+
+<br/>
+
+### 카드뭉치(큐)
+
+```cpp
+// 오늘 코드카타로 풀었던 문제였는데 강의 듣다가 나옴. 코드카타에서 풀었을땐 직접적으로 큐를 이용하진 않고 의도치 않게 큐의 원리를 이용해서 풀었는데 마침 또 나와줘서 큐로 풀어봤음. 쉬운 문제라서 금방함. 강의 풀이에서는 goal까지 큐에 넣어서 활용했는데 굳이? 싶긴한데 더 깔끔하긴 할듯?
+#include <iostream>
+#include <queue>
+
+std::string solution(std::vector<std::string> cards1, std::vector<std::string> cards2, std::vector<std::string> goal)
+{
+    std::queue<std::string> cards1_queue;
+    std::queue<std::string> cards2_queue;
+    for (std::string str : cards1)
+    {
+        cards1_queue.push(str);
+    }
+    for (std::string str : cards2)
+    {
+        cards2_queue.push(str);
+    }
+    for (std::string str : goal)
+    {
+        if (!cards1_queue.empty() && str == cards1_queue.front())
+        {
+            cards1_queue.pop();
+        }
+        else if (!cards2_queue.empty() && str == cards2_queue.front())
+        {
+            cards2_queue.pop();
+        }
+        else
+        {
+            return "No";
+        }
+    }
+    return "Yes";
+}
+
+int main()
+{
+    std::cout << solution({"i", "drink", "water"}, {"want", "to"}, {"i", "want", "to", "drink", "water"}) << std::endl; // "Yes"
+    std::cout << solution({"i", "water", "drink"}, {"want", "to"}, {"i", "want", "to", "drink", "water"}) << std::endl; // "No"
+    return 0;
+}
+
+```
+
