@@ -794,5 +794,19 @@ int solution(int n, int m, vector<int> section) {
 <details> 
   <summary>26.03.27</summary>
   <p>
+
+    하루종일 팀 프로젝트 진행(Monster 클래스 뼈대 완성 후 push)   
+    git 관련해서 엄청 많이 배웠음   
+    add stash pop restore 등등
+
+    vcxproj 파일에서 .h .cpp 파일 등을 include해준다   
+    vcxproj.filters에서는 비주얼 스튜디오 오른쪽에 보이는 폴더, 파일 등의 UI?를 구성해준다.   
+
+    서로 push를 하다보면 새로운 파일이 올라오는데 그걸 저 두 파일에 업데이트 안하고 올려버리면 pull해서 받는 사람한테 충돌이 생긴다.   
+    (물론 두 파일에 추가만 해줘도 돼서 금방 해결)   
+
+    근데 저 두 파일에 업데이트를 해서 올려주더라도 내가 새로운 파일을 작성하고 있으면(Local에만 있는 상태) 서로 충돌이 일어나는데 그럴땐 VSCode로 열면 충돌이 난 부분을 어떻게 할 것인지 선택지가 뜨고 거기서 선택하면 쉽게 해결   
+    
+    
   </p>
 </details>
