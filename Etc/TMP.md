@@ -868,3 +868,78 @@ for (int i = 0; i < 5; i++)
  ppt, 대본 작성   
   </p>
 </details>
+
+
+#### <!-- 26.04.01 -->
+<details> 
+  <summary>26.04.01</summary>
+  <p>
+
+코드카타
+
+```cpp
+    // 처음에 오류난 코드
+    for(const char &chr : s)
+    {
+        char tmp = chr;
+        int indx = index;
+        while(indx != 0)
+        {
+            if(skip_map.find(tmp) != skip_map.end())  // skip 해야하는 상황
+            {
+                ++tmp;
+            }
+            else // skip 안하는 상황
+            {
+                ++tmp;
+                --indx;
+            }
+            
+            if(tmp > 122)
+            {
+                tmp = 'a';
+            }
+        }
+        answer += tmp;
+    }
+
+    // 수정한 코드. 논리 순서가 잘못된거였음
+    for(char tmp : s)
+    {
+        int count = 0;
+        while(count < index)
+        {
+            tmp++;
+            
+            if(tmp > 122)
+            {
+                tmp = 'a';
+            }
+            
+            if(skip_map.find(tmp) == skip_map.end())  // skip 안하면
+            {
+                ++count;
+            }
+        }
+        answer += tmp;
+    }
+```
+ 
+ 코드카타 67 둘만의 암호   
+-> 코드 논리적 순서 차이로 갈림. 다시 확인(완료)   
+
+코드카타 68 햄버거 만들기   
+나름 stack을 잘 활용해서 뿌듯함   
+-> 다른사람풀이 봤는데 벡터를 스택처럼 활용하고 코드도 짧다. 같은 원린데 코드 길이가 너무 차이난다.
+
+코드카타 69번 성격유형검사   
+-> map 사용해서 쉽게함.
+
+코드카타 70번 바탕화면 정리
+-> x, y축이 헷갈렸지만 금방 풀었다.
+
+코드카타 71번 개인정보 수집 유효기간   
+-> 내 방식이 코드가 좀 길어서 다른사람 풀이를 봤는데 일수로 환산하는게 더 효율적인듯하다.
+
+  </p>
+</details>
