@@ -943,3 +943,35 @@ for (int i = 0; i < 5; i++)
 
   </p>
 </details>
+
+#### <!-- 26.04.02 -->
+<details> 
+  <summary>26.04.02</summary>
+  <p>
+  
+  cpp 배치고사 하는데 template 기본 문법이 생각이 안나서 TIL보고 참고했음 
+
+```cpp
+// 얜 진짜 봐도봐도 안익숙하다
+// 앞으로 좀 써봐야겠다
+template <typename T>
+```
+
+map 쓰는 문제에서 구현하는부분 말고 이미 적혀있던 출력 부분에서 map을 first, second 값으로 루프 돌릴 수 있다는걸 알게됨   
+평소에 코테 문제 풀 때 map을 많이 썼는데 중복이 없고 특정 값에 빠르게 접근하는 용도로만 쓰다보니 저 문법이 머릿속에 없었음(까먹은건가?)
+
+근데 굳이 value가 필요없어서 set을 써도 될 것 같은 문제들이 은근히 많은데 set을 워낙 안써서 습관적으로 map이랑 unordered_map만 쓴다. set을 좀 써봐야할듯. 
+
+```cpp
+// C++ 17 부터는 이렇게 사용하면 더 편하다고 한다
+for (const auto& [id, name] : students) {
+    // .first 대신 id, .second 대신 name을 바로 사용!
+    std::cout << "학번: " << id << ", 이름: " << name << std::endl;
+}
+```
+
+
+이력서 세션 후기 : 코테랑 포트폴리오에 목숨걸자
+
+  </p>
+</details>
