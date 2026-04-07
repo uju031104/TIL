@@ -1020,7 +1020,7 @@ DFS, BFS, 탐욕기법 등은 기본
   <summary>26.04.06</summary>
   <p>
 
-### UE5 초반 설명, 팁 들
+**<UE5 초반 설명, 팁 들>**  
 솔루션 구조: 비주얼 스튜디오에 있는 폴더구조
 
 `Engine`: 말 그대로 엔진의 코드들을 담고 있는 폴더   
@@ -1066,8 +1066,7 @@ World 좌표와 Local 좌표
 Set Relative Location을 사용하면 Local 좌표를 수정한다.   
 Local 좌표는 Root Component와 상대적인 위치를 나타낸다.   
 
-
-### 컴포넌트 붙이기(구조 설정)
+**<컴포넌트 붙이기(구조 설정)>**   
 ```cpp
 AItem::AItem()
 {
@@ -1096,7 +1095,7 @@ AItem::AItem()
 
 <br/>
 
-### 오디오 컴포넌트 에러
+**<오디오 컴포넌트 에러>**   
 오디오 컴포넌트 붙이는 과정에서 에러가 뜨길래 이유를 찾아봤더니 헤더파일이 없어서 그랬다. 스태틱 메쉬는 기본으로 포함되는데 오디오는 따로 포함시켜줘야 했다.
 
 ```cpp
@@ -1109,7 +1108,7 @@ AItem::AItem()
 
 <br/>
 
-### 헤더 파일 위치 오류
+**<헤더 파일 위치 오류>**   
 ```cpp
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -1122,7 +1121,7 @@ AItem::AItem()
 
 <br/>
 
-### 오디오 문법 오류
+**<오디오 문법 오류>**   
 
 헤더파일에 UAudioComponent 클래스를 사용하여 포인터 변수를 만들어줘서 사용할때도 오디오 관련으로 해야하는줄 알았는데 오디오는 기계의 개념이고 여기서 `Sound`를 설정해야하는거였다.   
 
@@ -1140,13 +1139,13 @@ if (SoundAsset.Succeeded())
 
 <br/>
 
-### 머터리얼이 출력 안되는 오류
+**<머터리얼이 출력 안되는 오류>**   
 사운드를 넣고나서 실행했더니 사운드는 들리는데 금색 머터리얼이 안입혀졌다.   
 알고보니 머터리얼 경로 붙여넣은거에 / 하나가 빠져있었다...   
 
 <br/>
 
-### 로그 메세지
+**<로그 메세지>**   
 
 ```cpp
 UE_LOG(LogTemp, Warning, TEXT("My Log!"));
@@ -1157,7 +1156,7 @@ UE_LOG(LogTemp, Warning, TEXT("My Log!"));
 
 <br/>
 
-### 로그 카테고리 만들기
+**<로그 카테고리 만들기>**    
 ```cpp
 // LogSparta는 만든 카테고리 이름
 // Warning이상의 메세지 출력
@@ -1173,7 +1172,7 @@ DEFINE_LOG_CATEGORY(LogSparta);
 
 <br/>
 
-### Life Cycle 함수
+**<Life Cycle 함수>**   
 
 생성자   
 -> 메모리에 생김. 딱 한번 호출
@@ -1200,7 +1199,7 @@ Destroyed()를 부르면 EndPlay()도 호출된다.
 
 <br/>
 
-### 액터를 배치할때 로그가 더 많이 뜨는 현상
+**<액터를 배치할때 로그가 더 많이 뜨는 현상>**   
 
 액터를 배치하면 Constructor Log만 떠야할 것 같은데 Constructor - Destroyed - Constructor 순서로 뜨길래 뭔지 찾아봤음   
 
@@ -1209,7 +1208,7 @@ Destroyed()를 부르면 EndPlay()도 호출된다.
 
 <br/>
 
-### Tick()에서 LOG가 안뜨는 현상
+**<Tick()에서 LOG가 안뜨는 현상>**   
 
 ```cpp
 PrimaryActorTick.bCanEverTick = true;
@@ -1218,7 +1217,7 @@ PrimaryActorTick.bCanEverTick = true;
 
 <br/>
 
-### Actor Transform 변경
+**<Actor Transform 변경>**   
 
 ```cpp
 void AItem::BeginPlay()
@@ -1241,7 +1240,7 @@ void AItem::BeginPlay()
 
 <br/>
 
-### Tick() 함수
+**<Tick() 함수>**   
 
 ```cpp
 void AItem::Tick(float DeltaTime)
@@ -1265,13 +1264,13 @@ void AItem::Tick(float DeltaTime)
 DeltaTime은 1프레임당 시간이다. 따라서, 프레임이 높을수록 DeltaTime은 작아진다.   
 회전하는 값에 DeltaTime을 곱해주면 프레임에 상관없이 같은 시간에 같은 값만큼 회전하게 된다.    
 
-### IsNearlyZero
+**<IsNearlyZero>**   
 
 위 예시에서 `FMath::IsNearlyZero()`를 썼는데 부동소수점은 정확한 0인지 판단하기 어렵기 때문에 이걸 써줘야 판단이 가능하다.   
 
 <br/>
 
-### 헤더에서 함수를 호출했을때 오류
+**<헤더에서 함수를 호출했을때 오류>**   
 
 시간을 가져오는 함수를 써서 변수를 만들어놓으려고 헤더파일에 구현을 했다. 그랬더니 nullptr를 반환하고 오류가 났다.   
 ```cpp
@@ -1281,7 +1280,7 @@ float Time = GetWorld()->GetTimeSeconds();
 
 <br/>
 
-### Scale은 변화를 주는 로직이 다르다
+**<Scale은 변화를 주는 로직이 다르다>**   
 
 Location과 Rotation은 변화를 주는 함수가 존재한다.   
 `AddActorLocalOffset()`과 `AddActorLocalRotation()`   
@@ -1304,7 +1303,7 @@ void ASquare::Tick(float DeltaTime)
 
 <br/>
 
-### FMath::Sin() 사용법
+**<FMath::Sin() 사용법>**   
 
 ```cpp
 // 시간 세팅
@@ -1318,13 +1317,13 @@ float S = FMath::Sin(Time * 5.0f);
 float S = FMath::Sin(Time * 5.0f) * 50.0f;
 ```
 
-### 리플렉션 시스템   
+**<리플렉션 시스템>**      
 
 메시나 머터리얼 등을 UE5 에디터에서 손쉽게 만질 수 있게 하는 기능 
 
 <br/>
 
-### Class 리플렉션
+**<Class 리플렉션>**   
 
 ```cpp
 #include "Item.generated.h"
@@ -1347,7 +1346,7 @@ UCLASS(BlueprintType)
 
 <br/>
 
-### 변수 리플렉션
+**<변수 리플렉션>**   
 
 ```cpp
 UPROPERTY()
@@ -1377,7 +1376,7 @@ UPROPERTY(값 수정 유무, 블루프린트 get/set 유무, 카테고리 설정
 
 <br/>
 
-### 함수 리플렉션
+**<함수 리플렉션>**   
 
 ```cpp
 UFUNCTION(블루프린트 get/set 유무, 카테고리 설정)
@@ -1387,6 +1386,132 @@ UFUNCTION(블루프린트 get/set 유무, 카테고리 설정)
 `BlueprintCallable`: 블루프린트에서 호출 가능   
 `BlueprintPure`: 블루프린트에서 값만 반환받는 함수로 호출   
 `BlueprintImplementableEvent`: 구현을 C++이 아닌 블루프린트에서 했는데 C++에서도 호출 가능하게 한다   
+
+
+  </p>
+</details>
+
+#### <!-- 26.04.07 -->
+<details> 
+  <summary>26.04.07</summary>
+  <p>
+
+**<Root 설정에 따른 차이>**
+
+Root를 누구로 설정하냐에 따라 바뀌는 점이 궁금해서 찾아봄   
+
+SceneComponent를 Root로 설정하면 가상의 점이 중심이 된다. 따라서 그 가상의 점을 옮겨서 그걸 중심으로 회전하는 등 다양한 구현이 가능   
+하지만 그만큼 복잡해질 수 있다.
+
+StaticMeshComponent를 Root로 설정하면 그 자체로 중심이 된다. 따라서 기본적인 물리 엔진을 적용할때 편하다.   
+하지만 복잡한 구조는 불가능하다.   
+
+**<UActorComponent 사용>**   
+
+다양한 움직임을 가진 큐브들을 만들때 클래스를 하나하나 만들어야 하진 않을테고 방법을 찾아봤다.   
+ UActorComponent를 상속받은 클래스를 하나 만들어서 해당 클래스에 다양한 움직임들을 구현한 후 에디터에서 Actor의 Detail 창에서 Add 해주면 된다고 한다.   
+
+```cpp
+// 헤더파일에 열거형 클래스를 하나 만들어주고
+UENUM(BlueprintType)
+enum class EMoveAction : uint8 {
+	Idle UMETA(DisplayName = "Idle"),
+	UpDown UMETA(DiaplayName = "UpDown"),
+	LeftRight UMETA(DisplayName = "LeftRight"),
+	Scale UMETA(DisplayName = "Scale"),
+	Rotate UMETA(DisplayName = "Rotate")
+};
+
+// Switch문으로 나눠준다.
+
+	switch (SeletedAction)
+	{
+	case EMoveAction::UpDown:
+		Owner->AddActorLocalOffset(FVector(0, 0, Range * Value * DeltaTime));
+		break;
+	case EMoveAction::LeftRight:
+		Owner->AddActorLocalOffset(FVector(0, Range * Value * DeltaTime, 0));
+		break;
+	case EMoveAction::Scale:
+		Owner->SetActorScale3D(FVector(1.0f + (Range + 1) / 2));
+		break;
+	case EMoveAction::Rotate:
+		Owner->AddActorLocalRotation(FRotator(0, Speed * DeltaTime, 0));
+		break;
+	}
+```
+
+**<짐벌락(Gimbal Lock)이란?>**  
+
+3차원 공간 회전을 계산할 때 사용하는 오일러 각도(Euler Angles) 방식(Roll, Pitch, Yaw)의 구조적 결함   
+세 개의 회전축 중 두 개의 축이 겹쳐지면서 한 방향의 자유도를 완전히 잃게됨   
+
+언리얼의 `AddActorLocalRotation`은 이를 어느정도 보정을 해주는데, 아주 정교한 작업을 할 때는 `FQuat`를 써야한다.   
+
+FQuat 예시   
+```cpp
+// 1. 원하는 회전량을 FRotator로 만듦
+    FRotator DeltaRotation(0, Speed * DeltaTime, 0);
+
+    // 2. 이를 쿼터니언(FQuat)으로 변환하여 적용 (짐벌락 방지)
+    Owner->AddActorLocalRotation(DeltaRotation.Quaternion());
+    break;
+```
+
+<br/>
+
+이것 저것 만지다 보니 Root의 Transform과 StaticMesh의 Transform이 달라져서 회전축이 이상하거나 이동도 이상해진다... 신경써야겠다.   
+
+**<큐브가 기존 위치로 오지 않는 현상>**   
+
+큐브가 상하운동을 하는데 내가 설정한 처음 위치에 딱 맞게 오지 않았다. 검색해보니 흔한 부동소수점의 오차로 발생하는 현상이라고 한다. `AddActorLocalOffset`을 사용하다 보니 이 오차가 계속 더해지고 빼지고 한다.   
+
+그래서 로직을 바꿔서 기존 위치에서 설정해준 sin의 범위만큼 더한 값으로 새로 `SetActorLocation`을 해줬다. 이렇게 하니 오차가 거의 없는 수준으로 느껴지는데 문제는 입력해야하는 범위값이 너무 커졌다.   
+원래는 Value에 1000.0f를 넣어놨는데 얘는 그만큼 움직이려면 거의 5000.0f는 필요한느낌이다.   
+
+-> 원인  
+프레임 독립적이게 `DeltaTime`을 쓴 것이 오히려 문제였다. 내 로직에서는 `GetWorld()->GetTimeSeconds()`를 써서 이미 프레임과 상관없는 시간초로 설정을 해놨기 때문에 굳이 DeltaTime을 쓸 필요가 없었다.   
+근데 Scale 빼고 모든곳에 DeltaTime을 써놔서 이것도 수정해봐야겠다. 어쩐지 다른 애들도 입력값과는 조금 다른 거리를 움직인다했다...   
+
+여기서 `DeltaTime`과 `GetTimeSeconds()`의 차이가 궁금해서 찾아봄   
+
+`GetTimeSeconds()`: 함수 방식이며 반복되는 정확한 패턴을 만들 때 사용하면 좋음   
+`DeltaTime`: 누적 방식이며 상호작용과 물리적인 움직임에서 사용하면 좋음   
+결론: 알잘딱으로 쓰면 좋고 두 방식을 섞어서 쓰는 경우도 있다.   
+
+지금 내가 만들고 있는 첫 번째 과제는 정확한 반복 패턴을 요구하기 때문에 누적방식 보다는 함수 방식이 훨씬 좋을 것 같다. 그래서 수정해야겠다.   
+수정하다보니 Rotation은 DeltaTime의 누적방식이 오히려 권장된다고 하는데 억지로 함수 방식으로도 구현을 한번 해봤다.  
+
+-> 추가로 구현   
+ Root(태양)를 기준으로 회전(공전)하는 Cube(지구)가 자전을 하게 만들고 싶어졌는데 여기서 문제가 이런 움직이는 기능들을 따로 `UActorComponent`로 만들었는데(정확히는 상속 받은 클래스) 여기서 액터의 컴포넌트에 접근하는 방법을 모른다는거다.   
+
+ 그래서 찾아봤더니
+```cpp
+// 헤더 파일에 스태틱 매쉬를 추가
+#include "Components/StaticMeshComponent.h"
+
+
+// cpp 파일에 코드 추가
+// Cube가 자전하는 기능을 위해 StaticMeshComponent에 접근한다.
+UStaticMeshComponent* StaticMesh = GetOwner()->FindComponentByClass<UStaticMeshComponent>();
+if (StaticMesh)
+{
+	StaticMesh->AddLocalRotation(FRotator(0, -Speed * DeltaTime, 0));
+}
+break;
+```
+-> 여기서 알게된 사실   
+공전과 자전을 같은 값으로 하고 부호만 반대로 하니까 액터가 가만히 멈춘 상태로 공전을 하게된다ㅋㅋ   
+
+
+<br/>
+
+**<생성자에서 컴포넌트를 불러와서 생긴 오류>**   
+
+Component가 아직 다 Attach 안됐는데 실수로 `InitialLocation = GetOwner()->GetActorLocation()`를 생성자에 작성해버렸다. 바로 nullptr 에러가 떠버림.   
+바로 BeginPlay()에 옮겼다.   
+익숙하지 않아서 실수가 엄청 많다.   
+
 
 
   </p>
