@@ -38,7 +38,7 @@
     <tr> <td>iterator            </td> <td>반복자</td> </tr>
     <tr> <td>condiment           </td> <td>첨가물, 조미료</td> </tr>
     <tr> <td>generate            </td> <td>생성하다</td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
+    <tr> <td>elapse              </td> <td>경과하다</td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>

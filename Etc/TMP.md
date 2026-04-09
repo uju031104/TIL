@@ -1553,3 +1553,113 @@ Map + delegate + struct를 활용해서 5가지 이동방식을 나누는 방법
 
   </p>
 </details>
+
+#### <!-- 26.04.09 -->
+<details> 
+  <summary>26.04.09</summary>
+  <p>
+
+모의면접시간에 나온 여러가지 질문들/팁 
+
+구조체를 클래스가 상속 받을 수 있나?   
+캡슐화 말고 객체지향의 특징은?   
+구조체 new 생성가능?   
+가비지 컬렉션에 대해서 더 깊이 설명?   
+
+대답할때 버퍼링이 생길경우 물은 한모금 마셔서 시간을 벌거나/ 면접관에게 너무 긴장해서 생각할 시간 조금만 달라고 하기   
+
+**<Delegate 관련 알게된 점>**   
+
+Delegate를 정의할때 받을 함수 인자의 갯수에 따라 다르게 정의해야 한다.   
+오버로드 기능이 없기 때문에 실행할 함수중 인자의 갯수가 가장 많은 함수를 기준으로 정의해야한다.   
+
+```cpp
+// 인자 0개
+DECLARE_DELEGATE(FActionDelegate);
+// float형 인자 1개
+DECLARE_DELEGATE_OneParam(FActionDelegate, float);
+// float, FVector 인자 2개
+DECLARE_DELEGATE_TwoParams(FActionDelegate, float, FVector);
+
+// 이런식으로 작성한다.
+```
+
+https://dev.epicgames.com/documentation/unreal-engine/delegates-and-lambda-functions-in-unreal-engine   
+공식 문서인데 아직 익숙하지 않아서 머리아프다..
+
+<br/>
+
+**<IsVaild() 잘 쓰기>**   
+
+```cpp
+IsValid(GetOwner())
+```
+`GetOwner()`가 destroyed 되거나 그 직전 상황인 경우 크래시가 날 수 있기 때문에 무조건 검사를 하는 습관을 기르자.   
+
+<br/>
+
+**<random 값 간단하게 만들기>**   
+
+```cpp
+FVector RandomOffset(
+	FMath::RandRange(-100.0f, 100.0f),
+	FMath::RandRange(-100.0f, 100.0f),
+	FMath::RandRange(-100.0f, 100.0f)
+);
+```
+위 코드처럼 `FMath::RandRange()`에 범위를 넣어주면 된다. float를 넣으면 자동으로 float이 나온다. 매우 편하다.   
+
+<br/>
+
+**<Clamp: 범위 내에 가두기>**
+
+```cpp
+float Health = 120.0f;
+Health = FMath::Clamp(Health, 0.0f, 100.0f); 
+// 결과: 100.0f (체력은 100을 넘을 수 없음!)
+```
+아주 유용하다.   
+
+<br/>
+
+**<Lerp: 점진적인 연결>**   
+
+$$FMath::Lerp(Start, End, Alpha)$$
+Lerp는 Linear Interpolation(선형 보간)의 약자.   
+-> 두 지점 사이의 중간값을 비율로 찾기   
+
+부드러운 연출을 나타내기에 매우 훌륭하다.   
+
+```cpp
+ElapsedTime += DeltaTime;
+
+// 0.0 ~ 1.0 범위로 정하고 (경과된 시간 / 내가 정해준 시간)으로 로직을 설정했다.
+// 내가 정한 시간만큼 흐르면 Alpha값이 최대값인 1.0이 된다.
+float Alpha = FMath::Clamp(ElapsedTime / ActionMap[EAction::Disappear].Duration, 0.0f, 1.0f);
+
+// 시간이 흐를수록 Alpha값이 1.0에 다가가게 하여 
+// 현재 크기부터 0까지 부드럽게 줄어들게 만듦
+FVector NewScale = FMath::Lerp(StartScale, FVector::ZeroVector, Alpha);
+```
+
+<br/>
+
+**<SpawnActor 사용법>**   
+
+이 친구가 좀 머리아프게 했는데, 알고보니 BP 클래스 하나 만들어서 걔를 스폰하게 하는애였다.   
+그래서 BP_Cube 하나 만들어서 내가 만든 ActorComponent 붙이고 스폰에 성공했다.
+
+```cpp
+// 이런식으로 블루프린트 연결할 변수와 생성할 개수를 담는 변수를 만들어주고(헤더파일에)
+UPROPERTY(EditAnywhere, Category = "Spawn")
+TSubclassOf<AActor> ActorToSpawn;
+
+UPROPERTY(EditAnywhere, Category = "Spawn")
+int32 SpawnCount = 5;
+
+// 생성할 기준을 설정하여 World에 스폰해준다.
+World->SpawnActor<AActor>(ActorToSpawn, RandomLocation, RandomRotation);
+```
+
+  </p>
+</details>
