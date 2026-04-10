@@ -1663,3 +1663,69 @@ World->SpawnActor<AActor>(ActorToSpawn, RandomLocation, RandomRotation);
 
   </p>
 </details>
+
+#### <!-- 26.04.10 -->
+<details> 
+  <summary>26.04.10</summary>
+  <p>
+
+**<UBT, UDT, CDO, Reflection>**   
+
+**UBT**
+
+UBT(Unreal Build Tool)는 전체 빌드 프로세서를 관리한다.   
+
+소스 코드를 분석해서 모듈 간의 의존성을 파악하고 컴파일러에게 어떤 파일을 빌드 할지 명령한다. 필요한 경우 UHT를 실행시킨다.  
+
+<br/>
+
+**UHT**   
+
+UHT(Unreal Header Tool)는 소스 코드 내의 매크로(UCLASS, UPROPERTY, UFUNCTION 등)를 감지하는 파서(Parser)이다.   
+
+헤더 파일에서 언리얼 매크로를 발견하면 해당 클래스의 리플렉션 정보를 담은 별도의 C++ 코드(.generated.h 및 gen.cpp)를 자동으로 생성한다.   
+
+<br/>
+
+**CDO**   
+
+CDO(Class Default Object)는 언리얼의 메모리 최적화와 기본값 관리를 위한 핵심 개념이다.   
+각 클래스 마다 딱 하나만 존재하는 기본 객체이며 생성자를 통해 생성된 기본 값들을 여기에 저장한다.   
+이를 이용해서 새로운 인스턴스를 생성할 때, CDO를 복사해서 만든다.(템플릿)   
+
+<br/>
+
+**Reflection**   
+
+리플렉션은 프로그램 실행중에 자기 자신의 구조(클래스, 변수, 함수 등)를 조사하고 수정할 수 있는 능력이다.   
+언리얼은 UClass와 같은 메타데이터를 가진 객체를 생성하여 이를 관리한다.   
+
+<br/>
+
+**추가사항**   
+
+UBT는 헤더파일의 상태를 두 가지 방식으로 체크한다.   
+
+수정시간(TimeStamp): 헤더 파일의 수정시간을 확인하여 최신화가 됐으면 UHT의 분석 대상이 된다.   
+파일내용(Check-Sum): 주석/공백 등의 수정만 있어서 리플렉션에 영향이 없으면 .generated.h 파일을 다시 쓰지 않는다.   
+
+.generated.h 파일이 수정되면 다시 컴파일을 해야해서 굉장히 무거운 작업이다. 따라서 이런 효율적인 프로세스를 가진다.   
+
+하지만 강제로 호출하는 경우도 있는데, .uproject나 .Bulid.cs 파일이 수정되면(프로젝트 설정, 모듈 의존성의 변화) UBT는 리플렉션 정보가 유효한지 다시 한 번 훑는다.   
+또한 Intermediate 폴더를 삭제하면 기록이 다 날아가기 때문에 다시 실행한다.   
+
+<br/>
+
+**GameModeBase**
+
+ActorComponent를 만들다 보니 Spawn도 자연스럽게 Actor에 붙이고 있었는데 생각해보니 굳이 Actor를 배치해야하는 비효율적인 행동을 해야했다.   
+그래서 찾아봤더니 `GameModeBase`라는걸 이용하면 된다고 한다.   
+
+근데 결국 기본 큐브만 소환가능한 상태라서 Cube 클래스에 ActionComponent를 만들어서 넣어줬다.   
+
+계속 오류나서 빌드가 꼬였나해서 폴더 4개 삭제하고 다시 실행했는데 디버그 하면 VS가 터져버리고 에디터로 가서 실행해도 터져버린다. 하 인생...   
+프로젝트 새로 만들어야겠다.   
+
+
+  </p>
+</details>
