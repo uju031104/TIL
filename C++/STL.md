@@ -110,3 +110,18 @@ vector<int> solution(vector<int> lst) {
 vector<int> answer(sum.begin(), sum.end()); // 반환타입을 맞추기 위헤 벡터로 변환
 ```
 
+<br/>
+
+***
+
+<br/>
+
+### map의 key, value 접근법
+
+```cpp
+// C++ 17 부터는 이렇게 사용하면 더 편하다고 한다
+for (const auto& [id, name] : students) {
+    // .first 대신 id, .second 대신 name을 바로 사용!
+    std::cout << "학번: " << id << ", 이름: " << name << std::endl;
+}
+```

@@ -296,3 +296,66 @@ int solution(vector<string> babbling) {
     return answer;
 }
 ```
+
+<br/>
+
+***
+
+<br/>
+
+### 둘만의 암호(67번)
+
+```cpp
+    // 처음에 오류난 코드
+    for(const char &chr : s)
+    {
+        char tmp = chr;
+        int indx = index;
+        while(indx != 0)
+        {
+            if(skip_map.find(tmp) != skip_map.end())  // skip 해야하는 상황
+            {
+                ++tmp;
+            }
+            else // skip 안하는 상황
+            {
+                ++tmp;
+                --indx;
+            }
+            
+            if(tmp > 122)
+            {
+                tmp = 'a';
+            }
+        }
+        answer += tmp;
+    }
+
+    // 수정한 코드. 논리 순서가 잘못된거였음
+    for(char tmp : s)
+    {
+        int count = 0;
+        while(count < index)
+        {
+            tmp++;
+            
+            if(tmp > 122)
+            {
+                tmp = 'a';
+            }
+            
+            if(skip_map.find(tmp) == skip_map.end())  // skip 안하면
+            {
+                ++count;
+            }
+        }
+        answer += tmp;
+    }
+```
+
+<br/>
+
+***
+
+<br/>
+
