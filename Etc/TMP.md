@@ -1785,3 +1785,18 @@ for (auto& MovingActor : SpawnActor)
 
   </p>
 </details>
+
+#### <!-- 26.04.14 -->
+<details> 
+  <summary>26.04.14</summary>
+  <p>
+
+**<Static Class 사용>**
+
+객체를 생성하지 않고 정적으로 U클래스 타입(리플렉션 시스템이 관리하는)으로 정보를 준다.
+
+```cpp
+DefaultPawnClass = ASpartaCharacter::StaticClass();
+```
+  </p>
+</details>
