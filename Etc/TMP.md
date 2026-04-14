@@ -1798,5 +1798,157 @@ for (auto& MovingActor : SpawnActor)
 ```cpp
 DefaultPawnClass = ASpartaCharacter::StaticClass();
 ```
+
+<br/>
+
+***
+
+<br/>
+
+**<IMC와 IA>**
+
+Input Mapping Context (IMC)   
+-> IA들을 총괄해서 관리   
+
+Input Action (IA)   
+-> 추상적인 행동   
+점프 - IA_Jump - Jump 함수   
+마우스 회전 - IA_Look - Look 함수   
+이동 - IA_Move - Move 함수   
+
+**<IMC on off 하기>**   
+2-2 강의 숙제에 있는 Tab키를 누르면 기존 IMC 작동 안하게, 다시 Tab을 누르면 작동 하게 만드는걸 해봤다.   
+
+`SetupInputComponent`를 override해서 Tab키를 누르면 내가 구현한 로직이 동작하게 만들어줘야했다.   
+
+```cpp
+//PlayerController.h
+bool bIsInventoryOpen = false;
+void ToggleIMC();
+virtual void SetupInputComponent() override;
+
+//PlayerController.cpp
+#include "EnhancedInputComponent.h"
+
+void ASpartaPlayerController::SetupInputComponent()
+{
+	Super:: SetupInputComponent();
+
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		EnhancedInputComponent->BindAction(TabAction, ETriggerEvent::Started, this, &ASpartaPlayerController::ToggleIMC);
+	}
+}
+```
+
+ToggleIMC 함수에 MappingContext를 바꾸는 로직을 구현했는데 그 함수를 바인딩 시켜줬다. 메서드들이 엄청 낯설다.   
+
+<br/>
+
+***
+
+<br/>
+
+**<GameMode 구조 정리>**   
+
+GameMode - Character(Default Pawn Class), Player Controller   
+Character를 만들고 GameMode에 연결해서 월드에 스폰   
+PlayerController(캐릭터의 빙의)   
+IMC, IA 입력 매핑   
+Local Player와 Local Player Subsystem을 가져와서 IMC를 활성화   
+Local Player는 사용자를 말한다.   
+Local Player Subsystem은 입력 매핑을 가지고 있는 클래스   
+
+<br/>
+
+***
+
+<br/>
+
+알고리즘 기초 정리   
+
+**<시간복잡도와 알고리즘>**   
+시간복잡도 : 입력크기(n)가 커질 때, 연산 횟수가 얼마나 증가하는지를 나타낸다.    
+알고리즘 : 문제를 해결하기 위한 절차나 규칙의 집합    
+-> 입력/출력/명확성/유한성/효율성을 가지고 있어야 알고리즘 취급    
+
+<br/>
+
+***
+
+<br/>
+
+**<벡터와 배열>**   
+vector는 연속된 동적 배열이다.   
+vector는 size와 capacity가 있다.    
+공간이 꽉 차면 기존의 2배 크기의 capacity를 가진 새 메모리를 재할당한다.   
+재할당은 O(n)의 시간복잡도   
+미리 크기를 알면 reserve(n)으로 재할당 방지를 한다.   
+v.reserve(100); 이런식으로 미리 공간 확보   
+
+insert()와 erase()는 O(n)의 시간복잡도고 나머지는 O(1)   
+v.insert(v.begin() + 2);    
+v.erase(v.begin() + 2);   
+실제 인덱스 위치(2)에 삽입/삭제   
+
+<br/>
+
+***
+
+<br/>
+
+**<stack과 queue 그리고 deque>**   
+queue는 front()와 back()으로 양 쪽 다 접근 가능   
+stack과 queue는 컨테이너 어댑터라고 부른다.   
+둘 다 deque라는 기본 컨테이너를 감싸서 접근 방식을 제한 한 것이다.   
+
+stack은 deque의 back만 사용, queue는 deque의 양쪽 끝 사용   
+
+deque는 **여러 개의 고정 크기 메모리 블록(Chunk)**을 할당하고 이를 관리하는 맵(Map) 형태의 인덱스 체계를 가진다.   
+
+메모리 불연속성: 데이터가 여러 블록에 나뉘어 저장되지만, 사용자 입장에서는 마치 하나의 연속된 배열처럼 인덱스 접근([])이 가능하다. (대신 임의 접근은 블록 계산을 해야해서 조금 느림)   
+양방향 확장: 앞(Front)과 뒤(Back) 양쪽 모두에서 원소를 추가/제정하는 것이 $O(1)$ 성능으로 매우 빠르다.   
+
+stack과 queue가 deque를 기본 컨테이너로 쓰는 이유   
+메모리 재할당 효율성: vector는 용량이 꽉 차면 전체 데이터를 새로운 메모리 공간으로 복사해야 하지만, deque는 새로운 메모리 블록을 하나 더 할당하기만 하면 됩니다. 대량의 데이터를 다룰 때 훨씬 안정적이다.   
+앞부분 삽입/삭제 성능: queue는 앞에서 데이터를 빼는 작업이 빈번합니다. vector는 앞에서 빼면 뒤의 모든 데이터를 당겨야($O(N)$) 하지만, deque는 앞쪽 블록만 건드리면 되므로 $O(1)$이다.   
+메모리 해제: vector는 clear()를 해도 할당된 메모리(capacity)를 들고 있는 경우가 많지만, deque는 블록 단위로 메모리를 관리하므로 상대적으로 메모리 관리가 유연하다.   
+
+<br/>
+
+***
+
+<br/>
+
+**<string과 여러 함수들>**   
+
+s.find("hello");   
+hello를 찾아서 첫 인덱스를 리턴   
+s.find("hello", 7);   
+인덱스 7부터 검색    
+없으면 string::npos를 리턴한다.   
+
+s.substr(0, 5);
+0부터 총 5개 즉 인덱스 0, 1, 2, 3, 4 이렇게 잘라서 리턴함   
+s.substr(10);   
+인덱스 10부터 끝까지   
+
+replace는 원본이 바뀐다.   
+s.replace(시작위치, 길이, "바꿀 문자열");   
+
+**<stringstream은 따로 자세히 정리돼있음>**   
+
+<br/>
+
+***
+
+<br/>
+
+**<Map과 함수들>**    
+
+m.count(key값); 으로 확인하고 접근   
+
+insert 대신 emplace 추천   
+
   </p>
 </details>
