@@ -1952,3 +1952,14 @@ insert 대신 emplace 추천
 
   </p>
 </details>
+
+#### <!-- 26.04.15 -->
+<details> 
+  <summary>26.04.15</summary>
+  <p>
+
+기술 면접 정리   
+
+
+  </p>
+</details>
