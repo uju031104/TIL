@@ -1963,3 +1963,38 @@ insert 대신 emplace 추천
 
   </p>
 </details>
+
+#### <!-- 26.04.16 -->
+<details> 
+  <summary>26.04.16</summary>
+  <p>
+
+**<FVector 방향 설정>**
+
+X : 정면   
+Y : 오른쪽   
+Z : 위쪽   
+
+키보드, 마우스 입력은 X부터 차례대로 들어온다.   
+WASD를 구분하는게 아니라 첫 입력을 무조건 X로 지정한다.   
+따라서 좌우로 움직이려면 X를 Y로 바꿔야하는데 그게 에디터의 swizzle 옵션이다. YXZ로 해주면 됨.   
+
+**<카메라 설정 변경>**   
+액터 자체를 움직이다보니 카메라 설정이 어색함.   
+`AddActorLocalRotation`자체가 액터를 움직이게 하기 때문에 설정을 바꿔야한다.   
+
+```cpp
+// 컨트롤러 회전 대신 폰의 회전을 그대로 따르도록 설정
+SpringArmComp->bUsePawnControlRotation = false; 
+SpringArmComp->bInheritPitch = true;
+SpringArmComp->bInheritYaw = true;
+SpringArmComp->bInheritRoll = true;
+
+// 카메라가 너무 흔들리는 게 싫다면 '지연(Lag)' 기능을 켠다.
+SpringArmComp->bEnableCameraLag = true;
+SpringArmComp->CameraLagSpeed = 3.0f; // 숫자가 낮을수록 부드럽게 따라옴
+```
+
+
+  </p>
+</details>
