@@ -1998,3 +1998,400 @@ SpringArmComp->CameraLagSpeed = 3.0f; // 숫자가 낮을수록 부드럽게 따
 
   </p>
 </details>
+
+#### <!-- 26.04.17 -->
+<details> 
+  <summary>26.04.17</summary>
+  <p>
+
+**<언리얼 심화반 정리>**   
+
+```cpp
+	// TObjectPtr 사용할때 참조 사용을 권장
+	for (TObjectPtr<USceneComponent>& Component : Components)
+	{
+
+	}
+
+	for (USceneComponent* Component : Components)
+	{
+
+	}
+
+	// TSubclassOf는 어떤 클래스 타입을 등록할건지 설정해줄 수 있다. UClass는 불가능(모든 클래스 다보여줘서 디자이너가 실수 할 가능성이 높음)
+	UPROPERTY(EditAnywhere, Category = "Class")
+	UClass* MyClass;
+	UPROPERTY(EditAnywhere, Category = "Class")
+	TSubclassOf<UClass> MyClass2;
+
+	TArray<int32> IntArray;
+
+	// 공간을 하나 만들어서 거기 두고 넣기. 명시적이라서 오류의 가능성이 없음.
+	IntArray.Add(5);
+	// 복사 없이 바로 넣음(성능이 조금 더 좋음) 눈에 보이지 않는 변환이 있을 수 있어서 아주 조금 불안정함
+	IntArray.Emplace(6);
+	// UE5는 성능 쥐어짜는 경우 제외하면 Add를 권장
+
+	// 성능 안좋아서 무조건 TSet을 쓰면 된다.
+	IntArray.AddUnique(6);
+
+	IntArray.Insert(600, 2);
+
+	//IntArray.Num(); 그냥 이렇게 쓰면 오류남. for문 if문 사용해야함
+	for (int32 i = 0; i < IntArray.Num(); ++i)
+	{
+
+	}
+
+	if (IntArray.Num())
+	{
+
+	}
+
+	// 함수객체
+	IntArray.Sort([](int32 A, int32 B) { return A > B; });
+
+	TArray<int32> ReturnIntArray = IntArray.FilterByPredicate([](const int32 FindValue) { return FindValue < 9; });
+
+	int32 index = IntArray.Find(5);
+	bool b = IntArray.Contains(5);
+
+	IntArray.Remove(10); // 모든 10값을 삭제
+	IntArray.RemoveSingle(10);  // 10값 중 가장 첫 번째꺼
+
+	if (IntArray.IsValidIndex(2)) // 먼저 2번째 인덱스에 값이 있는지 확인
+	{
+		IntArray.RemoveAt(2);  // 2번째 인덱스 값 삭제
+		IntArray.RemoveAt(2, EAllowShrinking::No);  
+		// 두번째 인자는 인덱스값 삭제 했을 때 제일 뒤에 빈 공간을 없앨것이냐 그대로 둘 것이냐를 정함. 기븐온 Yes고 삭제를 함
+	}
+	
+	// []안에 지역변수 (=, &) 클래스 내부 멤버 변수 (this)
+	IntArray.RemoveAll([](int32 Value) { return Value % 3 == 0; });
+
+	IntArray.Empty(); // 다 지우기
+
+
+// 수업때 코드 짠건데 Arr.Num()을 사용안했다.
+// 그리고 변수 이름도 RandonValue 이런식으로 하는게 좋다.
+	TArray<int32> Arr;
+	int32 count = 0;
+	while (count < 30)
+	{
+		int32 Num = FMath::RandRange(0, 1000);
+		if (Num <= 100)
+		{
+			Arr.Add(Num);
+			++count;
+		}
+	}
+	Arr.RemoveAll([](int32 Value) { return Value < 50; });
+	Arr.Sort([](int32 A, int32 B) { return A < B; });
+
+  // Set
+  TSet<int32> IntArraySet;
+
+IntArraySet.Add(100);
+
+if (IntArraySet.Contains(100))
+{
+
+}
+
+// TSet의 Find는 포인터를 반환한다.
+int32* FoundPtr = IntArraySet.Find(20);
+
+// TSet 순회하는 방법
+for (TSet<int32>::TIterator It = IntArraySet.CreateIterator(); It; ++It)
+{
+	if (*It < 60)
+	{
+		It.RemoveCurrent();
+	}
+}
+
+// Const로 받고 싶을때
+for (TSet<int32>::TConstIterator It = IntArraySet.CreateConstIterator(); It; ++It)
+{
+
+}
+// 제일 편한건 auto로 받는거지만 확실한거 아니면 안쓰는게 좋긴하다.(권장하지 않음)
+
+
+TSet<int32> SetA = { 1, 2, 3 };
+TSet<int32> SetB = { 3, 4, 5 };
+
+TSet<int32> SetC = SetA.Union(SetB); // 합집합
+TSet<int32> SetC = SetA.Intersect(SetB); // 교집합
+
+SetC.Compact(); // 삭제해서 비어버린 부분을 다 뒤로 옮김
+SetC.Shrink();  // 비어버린 부분 싹 다 정리
+
+TArray<int32> MyArray = SetC.Array(); // 배열로 자동으로 넘어간다.
+
+// Set 사용하는 곳 : 무기를 휘두룰때 그 범위에 같은 몬스터가 여러번 들어오면 Set을 이용해서 중복된 값을 없애면 몬스터에게 딱 한번만 데미지가 들어가게 된다.
+
+// TMap
+
+TMap<int32, FString> ItemMap;
+
+ItemMap.Add(101, TEXT("Sword"));
+ItemMap.Add(102, TEXT("Shield"));
+
+ItemMap.Emplace(103, TEXT("Potion"));
+
+ItemMap.Add(101, TEXT("Hello")); // 덮어씌워짐
+
+if (ItemMap.Contains(101))
+{
+	FString* FoundItem = ItemMap.Find(101);
+}
+
+FString& ItemRef = ItemMap.FindOrAdd(104); // 찾지 못하면 만들어라
+ItemRef = TEXT("Bow");
+
+// 위험한 코드(바로 접근)
+FString Name = ItemMap[105];
+// 이렇게 해줘야함 - 기존 C++과 달리 없으면 만들지 않고 Crash 나기 때문
+if (ItemMap.Contains(105))
+{
+	FString Name = ItemMap[105];
+}
+
+for (const TPair<int32, FString>& i : ItemMap)
+{
+
+}
+
+// 지우면서 갈 땐 무조건 Iterator를 사용하자(정말 혹시 모를 오류 하나라도 제거) 그냥 순회하면 위험할 수도 있다.
+for (TMap<int32, FString>::TIterator It = ItemMap.CreateIterator(); It; ++It)
+{
+	if (It.Key() == 103)
+	{
+		It.RemoveCurrent();
+	}
+}
+
+// 삭제
+ItemMap.Remove(102);
+// 빈공간 뒤로 몰고 삭제하기!
+ItemMap.Compact();
+ItemMap.Shrink();
+```
+
+<br/>
+
+**<심화반 1주차 수업 정리>**   
+심화반 수업 카카시   
+
+2d 좌표
+수학은 우리가 알고있는 기본 x, y
+코딩에서 기본 2d 좌표는 y가 반전이다.(아래로 갈수록 y값이 커짐)
+
+점은 원점을 기준으로
+벡터는 (0, 0) ~ (2, 2)나 (-2, -2) ~ (0, 0)이나 똑같은 벡터이다. 기준이 없어서 그렇다. 크기랑 방향만 가지고 있음.
+
+점과 벡터 모두 (x, y)로 표현하는데 의미가 다르다.
+
+B - A = v(벡터)
+점 A = (2, 4), 점 B = (5, 1)
+벡터 v = B - A = (5 - 2, 1 - 4) = (3, -3)
+
+<br/>
+
+**<벡터의 덧셈>**   
+두 벡터를 더하면 두 이동을 연달아 하는 것
+
+벡터a + 벡터b = (ax + bx, ay + by)
+
+<br/>
+
+**<벡터의 뺄셈과 스칼라곱>**   
+뺄셈
+두 점의 차이로 방향 벡터를 구할 때 사용
+벡터a - 벡터b = (ax - bx, ay - by)
+
+스칼라곱
+방향은 유지, 크기만 변경
+음수 곱하면 방향 반대
+
+<br/>
+
+**<벡터의 크기>**   
+벡터의 크기 = 화살표의 길이 = "얼마나 멀리?"
+
+피타고라스 정리와 같다.
+x방향, y방향으로 직각삼각형을 만들고 빗변의 길이를 구하는것.
+벡터v = (3, 4)  -> (3제곱 + 4제곱)에 루트 = 5
+
+<br/>
+
+**<벡터의 정규화(Normalize)>**   
+방향은 유지하고 크기는 1로
+벡터 (3, 4) -(정규화)-> (0.6, 0.8) 크기 1로 만듦
+
+왜 정규화가 필요한가?
+적이 3칸 떨어져 있든 100칸 떨어져 있든 캐릭터 이동속도는 같아야한다.
+방향 벡터를 정규화하면 거리에 상관없이 순수한 방향 정보만 얻을 수 있고 여기에 속도를 곱하면 일정한 속도로 이동.
+
+position += direction.normalized() x speed x dt
+
+위의 식 해석
+거리 = 속력 x 시간
+여기에 방향을 주는것.
+
+UE5에서 사용법
+```cpp
+FVector MyLoc = GetActorLocation();
+FVector TargetLoc = Target->GetActorLocation();
+
+FVector Dir = (TargetLoc - MyLoc).GetSafeNormal(); // 정규화로 방향 정보만 빼오기
+
+FVector NewLoc = MyLoc + Dir * Speed * DeltaTime;
+SetActorLocation(NewLoc);
+```
+
+<br/>
+
+**<pawn이 계속 떨어지는 현상>**
+
+Capsule Component에서 collision preset을 건드려주면 해결된다.   
+
+<br/>
+
+**<Line Trace 사용해보기>**   
+
+바닥 충돌은 sweep으로 캡슐 범위로 하려고 Line Trace는 사용법만 익혀봤음   
+```cpp
+	// LineTrace 사용해보기
+	FHitResult GroundHit;
+	FVector Start = GetActorLocation();
+	FVector End = Start + FVector(0, 0, -100.f);  // 밑으로 1m 레이저 발사
+
+	// 디버깅용 눈으로 레이저 확인
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1, 0, 1.f);
+
+	if (GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECC_Visibility))
+	{
+		if (GroundHit.Distance < 50.f && VerticalVelocity < 0)
+		{
+			VerticalVelocity = 0.f;
+		}
+	}
+```
+
+<br/>
+
+**<바닥 유무 확인(Sweep 활용)>**   
+선 하나로 바닥을 확인하는건 효율이 좋지 않아서 Capsule 자체로 확인하는 방법을 찾아봤다.   
+
+```cpp
+bool AMyPawn::IsOnGround()
+{
+	FHitResult HitResult;
+
+	// 시작~ 끝점 설정 (현재 위치에서 아주 살짝 아래까지)
+	FVector Start = GetActorLocation();
+	FVector End = Start + FVector(0.f, 0.f, -2.f);
+
+	// 에디터의 캡슐 정보 가져오기
+	FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(
+		CapsuleComp->GetScaledCapsuleRadius(),
+		CapsuleComp->GetScaledCapsuleHalfHeight()
+	);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this); // 나 자신은 제외
+
+	bool bHit = GetWorld()->SweepSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		FQuat::Identity,   // 회전 기본값
+		ECC_Visibility,    // Visibility 채널 사용 (바닥이 막는)
+		CapsuleShape,
+		Params
+	);
+
+	return bHit;
+}
+```
+<br/>
+
+**<바닥일때와 공중일때 카메라 전환>**   
+
+바닥일땐 PlayerController에게 카메라를 맡기고 공중일땐 pawn의 회전과 함께 움직이는 방법을 찾아서 적용해줬다.      
+
+```cpp
+// 회전을 담당하는 Look 함수를 수정해줬다.
+void AMyPawn::Look(const FInputActionValue& Value)
+{
+	FVector LookValue = Value.Get<FVector>();
+
+	// 바닥에 있을 땐 카메라만 회전, 공중에 뜨면 폰이 회전(공중에서 카메라는 폰 회전에 맞게 움직임)
+	if (IsOnGround())
+	{
+		AddControllerYawInput(LookValue.X * RotationSpeed * GetWorld()->GetDeltaSeconds());
+		AddControllerPitchInput(LookValue.Y * RotationSpeed * GetWorld()->GetDeltaSeconds());
+	}
+	else
+	{
+		LookInput = LookValue;
+	}
+}
+```
+<br/>
+
+bool 변수 2개를 이용해서 상태 변환을 체크하는 로직을 적용해봤다.   
+물론 아직 문제점이 많다...   
+카메라가 끊기는 것과 바닥에서 폰이 중심을 못 잡고 통통 튀는 현상도 있다.   
+
+```cpp
+// 바닥 -> 공중 or 공중 -> 바닥 즉, 상태가 변했을 때만 실행
+if (bGrounded != bWasOnGround)
+{
+	if (bGrounded)
+	{
+		// 카메라를 컨트롤러가 제어
+		SpringArmComp->bUsePawnControlRotation = true;
+		// 착륙 시 폰의 회전값(공중에선 폰에 회전과 함께 카메라가 움직임)을 카메라 컨트롤러와 일치시킴
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			PC->SetControlRotation(GetActorRotation());
+		}
+	}
+	else
+	{
+		
+		// 공중에선 다시 카메라를 pawn에 고정
+		SpringArmComp->bUsePawnControlRotation = false;
+	}
+	bWasOnGround = bGrounded;
+}
+```
+
+<br/>
+
+**<GetControlRotation()을 굳이 캐스팅 이후 불러오는 이유?>**   
+
+공부하다 보니 굳이 
+```cpp
+APlayerController* PC = Cast<APlayerController>(GetController());
+```
+이렇게 캐스팅하고 `PC->GetControlRotation();`를 쓰길래 의문점이 생겨서 찾아봄     
+
+두 방식은 약간의 차이가 있는데 캐스팅하면 무조건 명시적으로 컨트롤러의 로테이션을 가져온다고 보여주기도 하고 실제로도 그렇게 가져옴.   
+캐스팅 안하고 그냥 가져오면 pawn의 빙의 유무에 따라 다른데 빙의하고 있으면 컨트롤러가 있기 때문에 캐스팅 하는 방식과 똑같지만 빙의하지 않으면 pawn 자체의 회전값을 가져옴.   
+
+간단히 말하면 pawn을 possese하고 있으면 둘 다 결과값은 같긴함.   
+
+**정리**   
+명확한 의도를 표현하기 위함   
+PlayerController의 추가적인 기능을 사용할 수도 있어서 확장성이 좋음   
+캐스팅 안하고 그냥 쓰면 유효성 검사에서 플레이어 컨트롤러인지 AI 컨트롤러인지 확인이 불가능함   
+
+
+
+
+  </p>
+</details>
