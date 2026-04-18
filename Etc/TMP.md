@@ -2390,8 +2390,261 @@ APlayerController* PC = Cast<APlayerController>(GetController());
 PlayerController의 추가적인 기능을 사용할 수도 있어서 확장성이 좋음   
 캐스팅 안하고 그냥 쓰면 유효성 검사에서 플레이어 컨트롤러인지 AI 컨트롤러인지 확인이 불가능함   
 
+  </p>
+</details>
 
+#### <!-- 26.04.18 -->
+<details> 
+  <summary>26.04.18</summary>
+  <p>
 
+**<카메라 시점 전환 문제1>**  
 
+바닥에 있을땐 컨트롤러가 카메라를 제어   
+공중에 떠있으면 폰의 회전과 같이 카메라가 돌아감   
+
+문제는 공중에 뜨는 순간 컨트롤러 회전값과 폰의 회전값이 동일하지 않을 확률이 99.9999%이기 때문에 화면이 갑자기 폰 기준으로 확 바뀐다.   
+
+그래서 공중에 뜨는 순간 일정 시간동안 마우스 제어를 못하게 막고 시점이 부드럽게 전환되게 구현하려고 찾아봤음   
+
+일단 화면을 부드럽게 전환하려면 RInterpTo()를 사용하면 된다고 함   
+
+```cpp
+// 1차적으로 이렇게 구현
+FRotator CurrentRotation = PC->GetControlRotation();
+FRotator TargetRotation = GetActorRotation();
+
+FRotator DelayRotation = FMath::RInterpTo(
+	CurrentRotation,
+	TargetRotation,
+	DeltaTime,
+	CameraRotationInterpSpeed
+);
+
+PC->SetControlRotation(DelayRotation);
+```
+
+**<카메라 시점 전환 문제2>**  
+
+화면전환 로직을 컨트롤러 회전값 -> 폰의 회전값으로 서서히 다가가게 하였는데 문제는 그 사이에 마우스를 움직이면 두 값이 같아지지 않았다.   
+그래서 잠깐 마우스 회전을 못하게 막고 전환이 완료되면 움직일 수 있게 하였다.   
+
+완성된 코드
+
+```cpp
+	if (bGrounded != bWasOnGround)
+	{
+		if (bGrounded)
+		{
+			// 카메라를 컨트롤러가 제어
+			SpringArmComp->bUsePawnControlRotation = true;
+			// 착륙 시 폰의 회전값(공중에선 폰에 회전과 함께 카메라가 움직임)을 카메라 컨트롤러와 일치시킴
+			if (PC)
+			{
+				PC->SetControlRotation(GetActorRotation());
+			}				
+			// 플레이어가 카메라 제어
+			bIsNotRotate = false;
+		}
+		else
+		{
+			// 플레이어가 제어하지 못함
+			bIsNotRotate = true;
+		}
+		bWasOnGround = bGrounded;
+	}
+
+	if (bIsNotRotate && PC)
+	{
+
+		FRotator CurrentRotation = PC->GetControlRotation();
+		FRotator TargetRotation = GetActorRotation();
+
+		FRotator DelayRotation = FMath::RInterpTo(
+			CurrentRotation,
+			TargetRotation,
+			DeltaTime,
+			CameraRotationInterpSpeed
+		);
+
+		PC->SetControlRotation(DelayRotation);
+
+		if (CurrentRotation.Equals(TargetRotation, 0.1f))
+		{
+			bIsNotRotate = false;
+			SpringArmComp->bUsePawnControlRotation = false;
+		}
+	}
+```
+
+이제 이륙할때 화면이 부드럽게 넘어간다!   
+
+<br/>
+
+**<폰이 바닥에 지멋대로 있음>**
+
+폰이 착륙할 때 공중에 있던 회전값 그대로 떨어지는데 지 멋대로 넘어져있다.   
+이 문제를 고치기 위해 바닥에 닿았을 때 회전값을 조정하여 균형을 잡아주기로 했다.   
+
+```cpp
+// 바닥에서 폰이 오뚜기처럼 서있게
+if (bGrounded && VerticalVelocity == 0.f)
+{
+	FRotator CurrentRotation = GetActorRotation();
+	FRotator DesiredRotation = FRotator(0.f, CurrentRotation.Yaw, 0.f);
+
+	FRotator DelayRotation = FMath::RInterpTo(
+		CurrentRotation,
+		DesiredRotation,
+		DeltaTime,
+		5.f
+	);
+
+	SetActorRotation(DelayRotation);
+}
+```
+직접 구현을 해봤는데 일단 오뚜기처럼 돌아가긴한다.   
+하지만 또 문제가 발생했다.   
+
+<br/>
+
+**<바닥에서 폰이 오뚜기처럼 되돌아갈때 카메라는 안돌아가는 현상>**   
+
+폰은 되돌아가지만 카메라는 그대로 누워있다.   
+이건 금방 고칠 수 있을 것 같다.  
+
+```cpp
+// 바닥에서 폰이 오뚜기처럼 서있게 + 카메라도 같이 수정
+if (bGrounded && VerticalVelocity == 0.f)
+{
+	FRotator CurrentRotation = GetActorRotation();
+	FRotator DesiredRotation = FRotator(0.f, CurrentRotation.Yaw, 0.f);
+
+	FRotator DelayRotation = FMath::RInterpTo(
+		CurrentRotation,
+		DesiredRotation,
+		DeltaTime,
+		5.f
+	);
+
+	SetActorRotation(DelayRotation);
+
+	if (PC)
+	{
+		FRotator CurrentCameraRotation = PC->GetControlRotation();
+		FRotator DesiredCameraRotation = FRotator(CurrentCameraRotation.Pitch, CurrentCameraRotation.Yaw, 0.f);
+
+		FRotator DelayCameraRotation = FMath::RInterpTo(
+			CurrentCameraRotation,
+			DesiredCameraRotation,
+			DeltaTime,
+			5.f
+		);
+		PC->SetControlRotation(DelayCameraRotation);
+	}
+}
+```
+간단하게 카메라도 회전값을 바꿔줬더니 바로 해결!   
+
+**<폰이 일어선 후 특정 방향으로 가다가 바닥에 걸리는 현상>**   
+
+이건 아마 폰이 아주 미세하게 수평이 아니라서 나타나는 현상같다.   
+
+알아보니 범인은 바로 `RInterpTo()`였다.   
+얘는 설정한 값으로 정확히 변환되는게 아니라 아주아주 근사치까지 간다고 한다.   
+그래서 아주아주 근사치까지 갔을 때 값을 고정해주면 해결된다.   
+
+```cpp
+// 오류를 수정한 최종 코드
+
+	// 바닥에서 폰이 오뚜기처럼 서있게 + 카메라도 같이 수정
+	if (bGrounded && VerticalVelocity == 0.f)
+	{
+		
+		FRotator CurrentRotation = GetActorRotation();
+		FRotator DesiredRotation = FRotator(0.f, CurrentRotation.Yaw, 0.f);
+
+		if (FMath::IsNearlyEqual(CurrentRotation.Pitch, 0.f, 0.01f) && FMath::IsNearlyEqual(CurrentRotation.Roll, 0.f, 0.01f))
+		{
+			SetActorRotation(DesiredRotation);
+		}
+		else
+		{
+			FRotator DelayRotation = FMath::RInterpTo(
+				CurrentRotation,
+				DesiredRotation,
+				DeltaTime,
+				5.f
+			);
+
+			SetActorRotation(DelayRotation);
+		}
+		
+		if (PC)
+		{
+			FRotator CurrentCameraRotation = PC->GetControlRotation();
+			FRotator DesiredCameraRotation = FRotator(CurrentCameraRotation.Pitch, CurrentCameraRotation.Yaw, 0.f);
+
+			if (FMath::IsNearlyEqual(CurrentCameraRotation.Roll, 0.f, 0.01f))
+			{
+				PC->SetControlRotation(DesiredCameraRotation);
+			}
+			else
+			{
+				FRotator DelayCameraRotation = FMath::RInterpTo(
+					CurrentCameraRotation,
+					DesiredCameraRotation,
+					DeltaTime,
+					5.f
+				);
+				PC->SetControlRotation(DelayCameraRotation);
+			}
+		}
+	}
+```
+
+**<인터페이스 클래스>**
+
+```cpp
+// 인터페이스 헤더파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Interface.h"
+#include "ItemInterface.generated.h"
+
+// 인터페이스를 리플렉션 시스템에 등록하기 위한 코드다. 수정할필요 없음.
+UINTERFACE(MinimalAPI)
+class UItemInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+
+// 순수 가상함수 구현은 여기에 하면 된다.
+class SPARTAPROJECT_API IItemInterface
+{
+	GENERATED_BODY()
+
+public:
+};
+인터페이스 클래스는 cpp는 필요가 없는데 삭제하지말고 놔둬야 한다.   
+언리얼 엔진 코드 컨벤션에 그냥 헤더와 cpp 파일은 쌍으로 있어야 한다고 하기 때문에 건드리지 말것.   
+
+```
+
+  </p>
+</details>
+
+#### <!-- 26.04.19 -->
+<details> 
+  <summary>26.04.19</summary>
+  <p>
+  </p>
+</details>
+
+#### <!-- 26.04.20 -->
+<details> 
+  <summary>26.04.20</summary>
+  <p>
   </p>
 </details>
