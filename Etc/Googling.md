@@ -39,8 +39,8 @@
     <tr> <td>condiment           </td> <td>첨가물, 조미료</td> </tr>
     <tr> <td>generate            </td> <td>생성하다</td> </tr>
     <tr> <td>elapse              </td> <td>경과하다</td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
+    <tr> <td>Miscellaneous(misc.)</td> <td>여러 가지 잡다한</td> </tr>
+    <tr> <td>instigator          </td> <td>선동자, 유발자</td></tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>

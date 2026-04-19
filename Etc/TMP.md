@@ -2639,6 +2639,176 @@ public:
 <details> 
   <summary>26.04.19</summary>
   <p>
+
+**<콜리젼 프리셋 종류>**   
+
+`NoCollision`: 충돌 끄기(하늘 등 상호작용 안할것들)   
+`BlockAll`: 모두 막음(보통 벽, 바닥 등)   
+`OverlapAll`: 모두 감지함(센서, 트리거 등)   
+`BlockAllDynamic`: 움직이는 객체만 막음(플레이어랑 상호작용 하는 문 등)   
+`OverlapAllDynamic`: 움직이는 객체만 감지(센서, 트리거 등)   
+`Pawn`: Pawn타입 대상으로 충돌 감지 
+
+<br/>
+
+**<콜리전 커스텀 세팅>**   
+
+`Collision Enabled(Query and Physics)`: 충돌, 물리적 반응 모두 활성화   
+`Query Only`: 충돌(Overlap과 Hit)만 감지   
+`Physics Only`: 물리적 반응만 감지   
+
+<br/>
+
+**<스크린에 출력>**   
+
+```cpp
+GEngine->AddOnScreenDebugMessage(
+	-1,   // -1 해두면 계속 갱신해서 출력해줌
+	2.f,  // 출력 유지 시간
+	FColor::Green, // 글자색
+	FString::Printf(TEXT("Player Gained %d points"), PointValue)); // 내용
+```
+
+<br/>
+
+**<스폰 범위 설정하기>**
+
+간단하게 Actor 블루프린트 하나 만들어서  CollisonComponent를 추가하고 스폰 범위만큼 스케일을 조정해주면 된다.(스폰 볼륨이라고 함)      
+이렇게 하면 간단하기도 하고 플레이어의 위치를 체크하기 쉬워서 좋다.(콜리전 컴포넌트 자체가 가볍기도 함)   
+
+<br/>
+
+**<데이터 테이블>**   
+
+보통 기획자들이 많이 사용하는데 엑셀이나 JSON 파일로 데이터를 모아서 엔진에 임포트한 후 이 데이터들을 쉽게 사용함   
+그 데이터들을 다룰 구조체를 구현해줘야함   
+
+None으로 class하나 만들어주고 구조체를 구현해준다. (cpp파일은 안쓰니 #include 부분을 제외하고 다 지우기)   
+```cpp
+// 데이터 테이블을 위한 구조체 구현 예시
+#pragma once
+
+#include "CoreMinimal.h"
+#include "ItemSpawnRow.generated.h"
+
+USTRUCT(BlueprintType)
+struct FItemSpawnRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName ItemName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<AActor> ItemClass;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float SpawnChance;
+
+};
+
+```
+
+<br/>
+
+**<TSubclassOf에 대해서>**   
+
+포인터라기 보다 클래스를 참조하기 위한 템플릿 데이터 구조   
+
+`TSubclassOf`: 하드 레퍼런스   
+클래스가 항상 메모리에 로드 된 상태에서 바로 접근   
+`TSoftClassPtr`: 소프트 레퍼런스   
+클래스의 경로만 유지하고 필요한 상황에 메모리에 로드   
+
+**<누적값으로 랜덤 뽑기>**  
+
+6번 과제할때 써봤던건데 다시 복습   
+
+```cpp
+// A, B, C가 있고 각 0.5 0.3 0.2 확률이면
+// 0~ 1사이 랜덤값을 뽑고
+// 랜덤값이 0.5보다 작으면 A
+// 아니면 0.3을 더해주고 다시 비교
+// 랜덤값이 0.8보다 작으면 B
+// 아니면 0.2를 더해주고 다시 비교
+// 마지막이니 무조건 C
+	const float RandValue = FMath::FRandRange(0.f, TotalChance);
+
+	float AccumulateChance = 0.f;
+
+	for (FItemSpawnRow* Row : AllRows)
+	{
+		AccumulateChance += Row->SpawnChance;
+		if (RandValue <= AccumulateChance)
+		{
+			return Row;
+		}
+	}
+```
+
+**<데미지 입히고 받기>**   
+
+데미지 관련해서 이미 구현되어있는 기능을 사용하면 된다.(TakeDamage, ApplyDamage)   
+
+**데미지 받기**   
+```cpp
+// 헤더파일에 메서드를 override 해줌
+virtual float TakeDamage(
+	float DamageAmount,						 // 데미지를 얼마나 입었나.
+	struct FDamageEvent const& DamageEvent,  // 데미지 유형(이벤트) 특정 스킬이라던지 뭐 그런 정보
+	AController* EventInstigator,			 // 데미지를 발생시킨 주체 (ex. 파이어볼을 쏜 놈)
+	AActor* DamageCauser) override;			 // 데미지를 일으킨 오브젝트 (ex. 파이어볼) 
+
+// cpp 파일에 구현
+float ASpartaCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	// ActualDamage는 데미지 계산(방어력, 관통 등등)이 끝나고 실제로 들어온 데미지
+	float AcutalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	Health = FMath::Clamp(Health - DamageAmount, 0.0f, MaxHealth);
+	UE_LOG(LogTemp, Warning, TEXT("Health decreased to: %f"), Health);
+
+	if (Health <= 0.f)
+	{
+		OnDeath();
+	}
+
+	return AcutalDamage;
+}
+```
+
+<br/>
+
+**데미지 입히기**
+
+```cpp
+// cpp파일에서 간단하게 구현가능
+#include "Kismet/GameplayStatics.h"
+
+UGameplayStatics::ApplyDamage(
+	Actor,                     // 데미지 받는 액터
+	ExplosionDamage,           // 데미지 값
+	nullptr,				   // 데미지 유발자
+	this,					   // 데미지를 입힌 오브젝트
+	UDamageType::StaticClass() // 데미지 타입
+);
+```
+**<게임 흐름 구현>**
+
+GameState   
+게임의 전역 상태를 담는 클래스   
+싱글플레이라 여기서 구현하는게 좋음   
+
+GameMode   
+보통 서버전용 로직, 규칙을 담음   
+멀티게임은 여기서   
+
+**<IsA() 사용법>**   
+
+IsA()는 하위 클래스까지 다 확인해준다.   
+```cpp
+// CoinItem을 상속받은 Big, SmallCoinItem 둘 다 확인
+SpawnedActor && SpawnedActor->IsA(ACoinItem::StaticClass())
+```
+
   </p>
 </details>
 
