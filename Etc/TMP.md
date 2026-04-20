@@ -2816,5 +2816,152 @@ SpawnedActor && SpawnedActor->IsA(ACoinItem::StaticClass())
 <details> 
   <summary>26.04.20</summary>
   <p>
+
+**<C++의 4대 캐스팅 방법>**   
+
+**static_cast**   
+가장 많이 사용하고 컴파일 타임에 결정된다.   
+기본적인 데이터 타입 변환에 많이 사용된다.   
+부모, 자식 클래스간의 변환도 되는데 안전성 검사는 없다.   
+*void를 구체적인 타입으로 변환
+런타임 오버헤드가 없지만, 안전성은 100% 보장하지 않는다.   
+```cpp
+float FloatValue = 3.14f;
+// 실수에서 정수로 변환 (데이터 손실을 인지하고 있음을 명시)
+int IntValue = static_cast<int>(FloatValue);
+
+// 상속 관계에서의 업캐스팅 (자식 -> 부모)
+// MyPawn은 APawn의 자식이므로 항상 안전함
+APawn* BasePawn = static_cast<APawn*>(MyPawnInstance);
+```
+
+<br/>
+
+**dynamic_cast**    
+런타임에 상속관계에 있는 클래스간의 안전한 변환을 보장한다.   
+주로 부모 클래스 포인터를 자식 클래스 타입으로 변환(다운캐스팅)할때 사용한다.   
+RTTI(Runtime Type Information)을 사용하여 변환 가능 여부를 확인한다.   
+변환이 불가능할 경우 포인터는 nullptr를 반환하고 참조형은 예외를 발생시킨다.   
+반드시 하나 이상의 가상함수가 포함된 다형성 클래스여야 사용 가능하다.   
+```cpp
+// 가상 함수가 하나라도 있는 클래스여야 함
+class Animal { virtual void Speak() {} };
+class Dog : public Animal { void Speak() override { /* 멍멍 */ } };
+
+Animal* MyAnimal = new Dog();
+
+// MyAnimal이 실제 Dog인지 확인하며 캐스팅
+Dog* MyDog = dynamic_cast<Dog*>(MyAnimal);
+
+if (MyDog) {
+    // 변환 성공 시에만 안전하게 접근
+}
+```
+
+<br/>
+
+**const_cast**   
+객체의 const나 volatile 속성을 제거하거나 추가할 때 사용한다.   
+주로 상수 포인터나 참조자를 비상수 포인터/참조자로 잠시 바꿔야 하는 경우에 사용한다.   
+원래 const로 선언된 상수의 값을 이 연산자로 강제 변경하는 것은 정의되지 않은 동작(Undefined Behavior)을 유발할 수 있어서 주의해야한다.   
+
+```cpp
+void ModifyValue(const int* ReadOnlyValue) {
+    // ReadOnlyValue의 const를 강제로 제거
+    int* WritableValue = const_cast<int*>(ReadOnlyValue);
+    *WritableValue = 100;
+}
+```
+
+<br/>
+
+**reinterpret_cast**      
+서로 전혀 관계없는 타입 간의 비트 단위 재해석을 수행하는 강력하고 위험한 캐스팅이다.   
+포인터를 정수형으로 변환하거나 반대의 상황에 사용   
+서로 연관없는 클래스 포인터 간의 변환 
+컴파일러는 어떠한 논리적 검사도 하지 않는다.   
+하드웨어 제어나 특정 네트워크 프로토콜 처리 등 특수한 상황에서만 사용한다.  
+```cpp
+int Value = 65;
+// 정수 65를 메모리 주소 0x41(65의 16진수)로 간주하고 포인터로 변환
+int* Address = reinterpret_cast<int*>(Value);
+
+// 특정 객체를 바이트 단위(char*)로 쪼개서 전송하거나 읽을 때
+MyStruct Data;
+char* RawData = reinterpret_cast<char*>(&Data);
+```
+
+<br/>
+
+UE5에서는 dynamic_cast 대신 Cast를 사용한다. 언리얼 환경에 맞게 더 좋은 성능을 보여주기 때문이다.   
+RTTI대신 리플렉션 시스템이 기반 시스템이다.
+그리고 UObject를 상속받은 클래스에서 사용 가능하다.
+
+**<언리얼엔진의 HUD>**   
+
+Canvas 기반 HUD(예전방식)   
+UMG(Unreal Motion Graphics)   
+-> 요즘 씀 (Widget Blueprint 사용)   
+프로젝트이름.Build.cs 파일에 들어가서 UMG 등록을 해줘야 한다.(C# 코드)   
+```c#
+PublicDependencyModuleNames.AddRange(new string[] { 
+	"Core", 
+	"CoreUObject", 
+	"Engine", 
+	"InputCore", 
+	"EnhancedInput",
+	"UMG" // 여기 이부분 추가
+  });
+```
+
+**<버튼 2개 구현하기>**   
+4-2 강의 숙제에 있어서 구현해봤다.   
+`SetVisibility`에 계속 빨간줄이 그어져서 문제를 찾아봤는데 그냥 빌드도 되고 에디터에서 정상적으로 실행이 된다.   
+
+```cpp
+// 헤더파일에 #include "Components/Button.h"
+
+// Widget의 버튼을 찾아서 각각 캐스팅해준다.
+UButton* StartButton = Cast<UButton>(MainMenuWidgetInstance->GetWidgetFromName(TEXT("StartButton")));
+UButton* RestartButton = Cast<UButton>(MainMenuWidgetInstance->GetWidgetFromName(TEXT("RestartButton")));
+		
+if (StartButton && RestartButton)
+{
+	if (bIsRestart)
+	{
+    // Restart일때 StartButton은 사라지게 하고 RestartButton만 보이게 한다.
+		StartButton->SetVisibility(ESlateVisibility::Collapsed);
+		RestartButton->SetVisibility(ESlateVisibility::Visible);
+
+		if (UTextBlock* ButtonText = Cast<UTextBlock>(MainMenuWidgetInstance->GetWidgetFromName(TEXT("RestartButtonText"))))
+		{
+			ButtonText->SetText(FText::FromString(TEXT("Restart")));
+
+		}
+	}
+	else
+	{
+    // 위와 반대로
+		StartButton->SetVisibility(ESlateVisibility::Visible);
+		RestartButton->SetVisibility(ESlateVisibility::Collapsed);
+
+		if (UTextBlock* ButtonText = Cast<UTextBlock>(MainMenuWidgetInstance->GetWidgetFromName(TEXT("StartButtonText"))))
+		{
+			ButtonText->SetText(FText::FromString(TEXT("Start")));
+		}
+	}
+}
+```
+
+**<Animation 실행 코드>**
+
+```cpp
+// 에디터에서 만든 PlayGameOverAnim을 실행
+UFunction* PlayAnimFunc = MainMenuWidgetInstance->FindFunction(FName("PlayGameOverAnim"));
+if (PlayAnimFunc)
+{
+				MainMenuWidgetInstance->ProcessEvent(PlayAnimFunc, nullptr);
+}
+```
   </p>
 </details>
