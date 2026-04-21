@@ -315,6 +315,46 @@ void ModifyValue(const int* ReadOnlyValue) {
 
 <br/>
 
+```cpp
+// 하드웨어 상태 레지스터 읽기(Embedded/Driver)
+// 0x1000 주소가 "총기 발사 버튼"의 상태를 나타내는 하드웨어 주소라고 가정
+volatile bool* const bFireButtonPressed = (bool*)0x1000;
+
+void ProcessInput() {
+    // volatile이 없다면: 컴파일러는 루프 안에서 이 값을 바꾸는 코드가 없으므로
+    // 맨 처음 한 번만 읽고 그 값을 재사용(최적화)해서 무한 루프에 빠질 수 있음.
+    while (*bFireButtonPressed == false) {
+        // 버튼이 눌릴 때까지 대기
+    }
+    
+    // 버튼이 눌리면 발사 로직 실행
+    Shoot();
+}
+```
+
+<br/>
+
+```cpp
+// 공유 메모리를 이용한 시그널 전달 (Interrupt Handling)
+volatile bool bIsGameOver = false;
+
+// 게임 도중 갑자기 강제 종료 신호(Ctrl+C 등)가 들어오면 실행되는 함수(프로그램의 정상적인 흐름(Main Thread) 밖에서 값이 변하는 경우 - 인터럽트)
+void OnForceQuitSignal() {
+    bIsGameOver = true;
+}
+
+void GameLoop() {
+    while (!bIsGameOver) {
+        // 좀비 AI 업데이트, 플레이어 이동 등...
+        // 이 안에는 bIsGameOver를 true로 만드는 코드가 없음
+    }
+    // 루프 탈출 후 안전하게 리소스 해제
+    CleanUp();
+}
+```
+
+<br/>
+
 **reinterpret_cast**      
 서로 전혀 관계없는 타입 간의 비트 단위 재해석을 수행하는 강력하고 위험한 캐스팅이다.   
 포인터를 정수형으로 변환하거나 반대의 상황에 사용   

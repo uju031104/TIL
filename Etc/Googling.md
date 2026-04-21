@@ -41,9 +41,9 @@
     <tr> <td>elapse              </td> <td>경과하다</td> </tr>
     <tr> <td>Miscellaneous(misc.)</td> <td>여러 가지 잡다한</td> </tr>
     <tr> <td>instigator          </td> <td>선동자, 유발자</td></tr>
-    <tr> <td>            </td> <td></td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
+    <tr> <td>volatile            </td> <td>휘발성 물질</td> </tr>
+    <tr> <td>qualifier           </td> <td>한정, 제한</td> </tr>
+    <tr> <td>reinterpret         </td> <td>재해석하다</td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>

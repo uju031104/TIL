@@ -2965,3 +2965,164 @@ if (PlayAnimFunc)
 ```
   </p>
 </details>
+
+#### <!-- 26.04.21 -->
+<details> 
+  <summary>26.04.21</summary>
+  <p>
+
+```cpp
+// 코드카타 84번 unordered_map 활용
+#include <string>
+#include <vector>
+#include <stack>
+#include <unordered_map>
+
+using namespace std;
+
+bool isValid(string s)
+{
+    stack<char> sstack;
+    unordered_map<char, char> s_map{
+        {')', '('},
+        {'}', '{'},
+        {']', '['}
+    };
+    
+    for(char chr : s)
+    {
+        if(s_map.count(chr))
+        {
+            if(sstack.empty() || s_map[chr] != sstack.top())
+            {
+                return false;
+            }
+            else
+            {
+                sstack.pop();
+            }
+        }
+        else
+        {
+            sstack.push(chr);
+        }
+    }
+    return sstack.empty();
+}
+
+int solution(string s) {
+    int answer = 0;
+    
+    for(int i = 0; i < s.length(); ++i)
+    {
+        if(isValid(s))
+        {
+            answer ++;
+        }
+        
+        char sf = s[0];
+        s = s.substr(1) + sf;
+    }
+    
+    return answer;
+}
+```
+
+<br/>
+
+**<과제 8번 시작 전 처음부터 싹 다 복습>**   
+
+과제 8번이 챕터 2~ 4에 했던거에 더 보충하는 느낌인데 이미 해놓은거에 덮어씌우는거보단 최대한 보지않고 직접 다시 구현해보는게 좋을 것 같다고 판단했다.   
+
+1.클래스간 구조 파악 다시 한번 더 해보고 정리   
+2.추가로 스마트포인터를 사용하면서 코딩  
+3.UPROPERTY, UFUNCTION 같은 언리얼 리플렉션 매크로의 설정을 최대한 보수적으로(VisibleAnywhere 등등) 잡아서 감각 늘리기 
+
+<br/>
+
+**캐릭터**   
+
+Character   
+Camera, SpringArm   
+
+```cpp
+// 카메라와 스프링암
+
+#include "Camera/CameraComponent.h" // 카메라 헤더
+#include "GameFramework/SpringArmComponent.h" // 스프링암 헤더
+
+SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+SetRootComponent(SpringArm);
+// 스프링암 길이 설정
+SpringArm->TargetArmLength = 500.f;
+// Pawn(Character)의 회전과 스프링암 회전을 같게 할 것인지
+SpringArm->bUsePawnControlRotation = true;
+
+Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+Camera->SetupAttachment(SpringArm);
+// 카메라는 어차피 스프링암에 붙어있기 때문에 false
+Camera->bUsePawnControlRotation = false;
+```
+
+<br/>
+
+PlayerController   
+IA, IMC   
+BeginPlay() -> IMC 연결   
+
+```cpp
+// IMC 등록하기
+
+// Subsystem을 불러오기 위해 필요한 헤더
+#include "EnhancedInputSubsystems.h"
+
+void AMyPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// 1.LocalPlayer를 가져온다.
+	if (TObjectPtr<ULocalPlayer> LocalPlayer = GetLocalPlayer())
+	{
+		// 2.LocalPlayer의 Subsystem을 가져온다.
+		if (TObjectPtr<UEnhancedInputLocalPlayerSubsystem> Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			if (InputMappingContext) // IMC가 있다면
+			{
+				// 3.LocalPlayer의 Subsystem에 IMC를 등록해준다. 0은 제일 높은 우선순위.
+				Subsystem->AddMappingContext(InputMappingContext, 0);
+			}
+		}
+	}
+}
+```
+
+GameMode   
+기본 설정을 한다.   
+<br/>
+
+```cpp
+#include "MyGameMode.h"
+#include "MyCharacter.h"
+#include "MyPlayerController.h"
+
+AMyGameMode::AMyGameMode()
+{
+	// 클래스의 객체를 전달하는게 아니라 클래스 자체(설계도)를 넘겨준다.
+	DefaultPawnClass = AMyCharacter::StaticClass();
+	PlayerControllerClass = AMyPlayerController::StaticClass();
+}
+```
+
+**<VisibleAnywhere 이해하기>**   
+
+VisibleAnywhere를 써도 수정 가능한 상황이 많이 나와서 찾아봤다.   
+
+컴포넌트, 서브객체인 경우 이런 상황이 나온다.   
+컴포넌트의 경우 컴포넌트 자체는 고정하고 세부 값만 건드리라는 뜻이다.   
+즉, EditAnywhere로 바꾸면 컴포넌트 자체를 바꾸거나 비워버릴 수 있다는 것   
+
+변수(메모리 주소) 자체를 수정할 수 있으면 Edit, 없으면 Visible 이란 뜻이다.   
+
+  </p>
+</details>
+
