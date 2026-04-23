@@ -3240,12 +3240,30 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 #include "InputActionValue.h" 
 ```
 
-<br/>
+  </p>
+</details>
 
-**<>**   
+#### <!-- 26.04.23 -->
+<details> 
+  <summary>26.04.23</summary>
+  <p>
+
+마스터 과제 제출 완료   
+UE5 강의 챕터3 부분 다시 복습하며 구현중      
+
+**<RTTI와 RAII의 차이점>**   
+
+Run-Time Type Information   
+RTTI는 프로그램 실행 중에 객체의 실제 타입을 확인하는 기능입니다.   
+클래스에 가상함수가 하나 이상 있어야 하고 주로 dynamic_cast를 사용합니다.(다운캐스팅중 사용한다. 부모 포인터 -> 자식 포인터)   
+(typeid도 있긴함 객체의 타입 정보를 반환)   
+
+RAII   
+Resource Acquisition Is Initialization   
+객체의 생명 주기(Scope)와 자원의 관리 주기를 같게 하여 메모리를 안전하게 관리하는 방법입니다.   
+메모리 누수를 방지 할 수 있고 이를 사용하는 도구는 소멸자, 스마트 포인터등이 있습니다.   
 
 
 
   </p>
 </details>
-
