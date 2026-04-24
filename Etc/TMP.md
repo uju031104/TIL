@@ -3263,7 +3263,352 @@ Resource Acquisition Is Initialization
 객체의 생명 주기(Scope)와 자원의 관리 주기를 같게 하여 메모리를 안전하게 관리하는 방법입니다.   
 메모리 누수를 방지 할 수 있고 이를 사용하는 도구는 소멸자, 스마트 포인터등이 있습니다.   
 
+  </p>
+</details>
 
+#### <!-- 26.04.24 -->
+<details> 
+  <summary>26.04.24</summary>
+  <p>
+
+**<오버래핑한 Actor들을 배열에 저장>**   
+
+```cpp
+TArray<AActor*> OverlappingActors;
+ExplosionCollision->GetOverlappingActors(OverlappingActors);
+// 참고로 GetOverlappingActors는 TArray<AACtor*>& 형식으로 받기때문에 OverlappingActors를 TObjectPtr로 구현하면 오류가 난다.
+```
+
+<br/>
+
+**<TObjectPtr 가이드라인>**   
+
+언리얼엔진에서는 클래스의 멤버 변수에는 `TObjectPtr`을 쓰고 함수의 매개변수, 지역변수에는 기존 포인터를 쓰는 게 가이드라인이라고 한다.   
+
+<br/>
+
+**<언리얼 심화 정리>**   
+
+오늘 배운건 아래 3가지   
+하나만 인식하는 트레이스   
+여러개를 인식하는 트레이스   
+비동기 트레이스   
+
+Trace 쓰는 방법은 2가지, 블루프린트(Kismet)와 C++ (GetWorld()->...)   
+평소에 블루프린트로 쓰다가(디버깅이 매우 쉬워서) 출시 직전엔 GetWorld()방식   
+C++ 방식이 미세하게 더 가볍다.   
+
+**콜리전 프리셋**   
+나만의 콜리전 프리셋을 만들 수 있음      
+project setting -> engine -> collision
+Object Channels에 하나 만들어주고      
+여기서 Preset-New Profile에 추가하고 설정해주면 된다.   
+
+**큐브**   
+큐브를 하나 꺼내보면 Block처리 되는데 큐브의 StaticMeshComponent에 있는 Collision이 Default로 되어있음   
+이 뜻이 이 메시 자체에 있는 Collision 프리셋을 그대로 따르겠다는 뜻   
+메시에 들어가서 콜리전을 직접 수정할 수 있는데 단순/복합이 있음    
+심플은 가볍지만 정밀하지 않고 복합은 거의 폴리곤 단위로 콜리전이 있지만 부하가 심함    
+여기서 Collision Complexity 들어가면 여러가지가 있는데 그중 Simple And Complex 는 평소엔 심플하게 하다가 충돌이 있을때 컴플렉스로 바꿈   
+
+**<싱글 트레이스>**   
+```cpp
+ //싱글 트레이스(UKismetSystemLibrary 사용)
+ //싱글은 Block에만 막힘
+void AMyActor::StartSingleTrace()
+{
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	FHitResult HitResult;
+
+	// 첫 인자는 this 넣어도 작동함
+	// .Add(this)를 해줬지만 한번 더 true로 해준다.
+	// 이래야 버그가 안생김(가끔 다른 컴포넌트가 액터에 붙으면 검출되는 상황이 있음)
+	UKismetSystemLibrary::LineTraceSingle(
+    // this로 넣어줘도 됨
+		GetWorld(), 
+    // 시작지점
+		GetActorLocation(),
+    // 끝지점(액터의 방향벡터와 길이에 시작지점을 더해줘서 구함) 
+		GetActorForwardVector() * 1000.f + GetActorLocation(), 
+    // TraceType을 Visibility로 설정
+		UEngineTypes::ConvertToTraceType(ECC_Visibility),
+    // Complex 설정(false로 하면 simple이 됨)
+		false,
+    // 무시할 엑터를 모아둔 배열
+		ActorsToIgnore,
+    // 디버깅 얼마동안 할지(밑에 설정은 1프레임)
+		EDrawDebugTrace::ForOneFrame,
+    // 충돌 결과
+		HitResult,
+    // 나 자신을 무시할지 결정하는건데, 위에 이미 무시한다고 넣어놨지만 여기도 true로 해줘야 확실하게 무시하게 됨(버그 방지)
+		true,
+    // 트레이스 색깔
+		FLinearColor::Red,
+    // 트레이스 충돌 시 색깔
+		FLinearColor::Green
+	);
+}
+```
+<br/>
+
+**<멀티 트레이스>**
+
+```cpp
+// 멀티 트레이스(UKismetSystemLibrary 사용)
+// Overlap은 다 뚫으면서 지나가고 Block에서 막히는데 Block만 있으면 싱글과 같은 기능을 함
+// 싱글과 거의 같지만 충돌을 다중으로 하기 때문에 FHitResult만 TArray로 감싸주면 된다.
+void AMyActor::StartSingleTrace()
+{
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	TArray<FHitResult> HitResult;
+
+	UKismetSystemLibrary::LineTraceMulti(
+		GetWorld(),
+		GetActorLocation(),
+		GetActorForwardVector() * 1000.f + GetActorLocation(),
+		UEngineTypes::ConvertToTraceType(ECC_Visibility),
+		false,
+		ActorsToIgnore,
+		EDrawDebugTrace::ForOneFrame,
+		HitResult,
+		true,
+		FLinearColor::Red,
+		FLinearColor::Green
+	);
+}
+```
+
+<br/>
+
+**<비동기 방식>**   
+
+위 2개는 블루프린트 방식으로 구현했으니 마지막 비동기는 C++ 방식으로 구현   
+
+```cpp
+// 비동기 방식
+// 메인 스레드에서 다른 스레드한테 일을 짬때림. 그 스레드는 일을 끝내고 다시 결과물을 메인에 줌
+void AMyActor::StartAsycnTrace()
+{
+	// AsyncLineTraceByChannel에 쓸 Delegate 함수 바인딩
+	FTraceDelegate TraceDelegate;
+	TraceDelegate.BindUObject(this, &AMyActor::OnAsyncTraceCompleted);
+
+	// UWorld() 방식은 이렇게 쿼리를 직접 가져와서 세팅
+	FCollisionQueryParams QueryParams;
+	FCollisionResponseParams ResponseParams;
+
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bTraceComplex = false;
+
+	// 이 액터랑 부딪히는 오브젝트의 타입이 WorldDynamic이면 콜리전 타입을 강제로 오버랩으로 바꿔버리는 기능
+	// 근데 Ignore > Overlap > Block 순으로 약해져서
+	// Ignore로 설정해뒀으면 밑에 코드에서 Block으로 바꿔도 안바꿔진다.
+	// Block으로 해둔걸 Ignore나 Overlap으로 바꾸거나 Overlap을 Ignore로 바꾸는 용도
+	ResponseParams.CollisionResponse.WorldDynamic = ECR_Block;
+
+	// EAsyncTraceType::Test 는 bool 처럼 인식 했냐 안했냐만 체크를 하기때문에 매우 가볍다
+	// 예를 들어 눈이 먼 몬스터처럼 인식만 가능한 경우 사용  
+	GetWorld()->AsyncLineTraceByChannel(
+		// TraceType을 Multi로
+		EAsyncTraceType::Multi,
+		// Trace 시작점
+		GetActorLocation(),
+		// Trace 끝점
+		GetActorForwardVector() * 1000.f + GetActorLocation(),
+		// TraceType
+		ECC_Visibility,
+		// 위에 설정해둔 QueryParams
+		QueryParams,
+		ResponseParams,
+		// Delegate 함수
+		&TraceDelegate
+	);
+}
+
+// AsyncLineTraceByChannel을 위한 Delegate 함수
+void AMyActor::OnAsyncTraceCompleted(const FTraceHandle& Handle, FTraceDatum& Data)
+{
+	for (const FHitResult& Hit : Data.OutHits)
+	{
+		AActor* HitActor = Hit.GetActor();
+
+		if (!IsValid(HitActor)) return;
+
+		GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Green, FString::Printf(TEXT("Multi Hit Actor : %s"), *HitActor->GetName()));
+
+		// 블루프린트 형식과 다르게 Debug를 알아서 해줘야한다.
+		DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 20.f, 12, FColor::Green, false, 2.f);
+
+		// #include "Kismet/KismetSystemLibrary.h" 있어야함
+		UGameplayStatics::ApplyPointDamage(
+			// 데미지 받는 액터
+			HitActor,
+			// 기본 데미지 값
+			50.f,
+			// 데미지 방향
+			GetActorForwardVector(),
+			// 충돌 결과
+			Hit,
+			// 때린 놈의 컨트롤러
+			GetInstigatorController(),
+			// 때린 놈
+			this,
+			// UDamageType 클래스
+			UMyFireDamageType::StaticClass()
+		);
+	}
+}
+```
+
+<br/>
+
+**<DamageType과 커스텀>**
+
+DamageType이라는 클래스가 있는데 내용을 보면 진짜 별거 없는 베이스 클래스이다.   
+
+```cpp
+// 실제 UDamageType 내부 모습
+// 데미지 관련 변수들만 가득하다.
+UCLASS(MinimalAPI, const, Blueprintable, BlueprintType)
+class UDamageType : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	/** True if this damagetype is caused by the world (falling off level, into lava, etc). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DamageType)
+	uint32 bCausedByWorld:1;
+
+	/** True to scale imparted momentum by the receiving pawn's mass for pawns using character movement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DamageType)
+	uint32 bScaleMomentumByMass:1;
+
+	/** When applying radial impulses, whether to treat as impulse or velocity change. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RigidBody)
+	uint32 bRadialDamageVelChange : 1;
+
+	/** The magnitude of impulse to apply to the Actors damaged by this type. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RigidBody)
+	float DamageImpulse;
+
+	/** How large the impulse should be applied to destructible meshes */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Destruction)
+	float DestructibleImpulse;
+
+	/** How much the damage spreads on a destructible mesh */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Destruction)
+	float DestructibleDamageSpreadScale;
+
+	/** Damage fall-off for radius damage (exponent).  Default 1.0=linear, 2.0=square of distance, etc. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DamageType)
+	float DamageFalloff;
+};
+```
+
+<br/>
+
+**<기본 DamageType>**   
+
+기본 타입을 쓰면 어떻게 될까?
+
+```cpp
+UGameplayStatics::ApplyPointDamage(
+			HitActor,
+			50.f,
+			GetActorForwardVector(),
+			Hit,
+			GetInstigatorController(),
+			this,
+			// 기본 UDamageType 쓰기
+			UDamageType::StaticClass()
+		);
+```
+
+아무런 로직이 없기 때문에 순수하게 데미지만 전달된다.   
+
+<br/>
+
+**<DamageType 커스텀하기>**
+
+```cpp
+// UDamageType을 상속받은 커스텀 데미지 타입을 만든다. 
+// MyFireDamageType.h
+UCLASS()
+class MYPROJECT_API UMyFireDamageType : public UDamageType
+{
+	GENERATED_BODY()
+	
+public:
+
+	UMyFireDamageType();
+	
+	// 화상 지속시간
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float BurnDuration;
+	// 방어구 관통
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float ArmorPenetration;
+};
+
+// MyFireDamageType.cpp
+UMyFireDamageType::UMyFireDamageType()
+{
+	// 화상 지속시간
+	BurnDuration = 5.f;
+	// 방어력 관통
+	ArmorPenetration = 0.2f;
+}
+```
+
+<br/>
+
+**<커스텀 데이터타입 사용해보기>**   
+
+```cpp
+// 실제 데미지를 입는 Actor에 TakeDamage 함수를 오버라이드해서 사용해보았다.  
+// ACharacter 사용
+
+float AMyProjectCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	
+  // 이부분은 기본 데이터타입 사용
+	// #include "Engine/DamageEvents.h" 필요
+	// 헤더에 있는 UDamageType으로 사용
+	//const UDamageType* DT = DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>();
+	
+	//if (DT && DT->bCausedByWorld)
+	//{
+	//	// 낙사, 트랩...
+
+	//	UE_LOG(LogTemp, Warning, TEXT("ByWorld Damage Received"));
+	//}
+
+	//if (EventInstigator)
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("Im Enemy"));
+	//}
+
+
+	// 내가 만든 데미지 타입으로 커스텀
+	const UMyFireDamageType* FireDamage = DamageEvent.DamageTypeClass->GetDefaultObject<UMyFireDamageType>();
+
+	if (FireDamage)
+	{
+    // 커스텀 해준 값들 실제로 사용
+		ActualDamage *= (1.f + FireDamage->ArmorPenetration);
+
+		// 화상효과, 이펙트, 사운드 설정 추가 가능
+
+		UE_LOG(LogTemp, Warning, TEXT("Fire Damage Received"));
+	}
+
+	// HP -= ActualDamage; 
+
+	return ActualDamage;
+}
+```
 
   </p>
 </details>
