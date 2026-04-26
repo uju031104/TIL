@@ -379,14 +379,43 @@ IsValid(GetOwner())
 
 ### FMath::RandRange()
 
+<br/>
+
 ```cpp
+// `FMath::RandRange()`에 범위를 넣어주면 된다. float를 넣으면 자동으로 float이 나온다.
 FVector RandomOffset(
 	FMath::RandRange(-100.0f, 100.0f),
 	FMath::RandRange(-100.0f, 100.0f),
 	FMath::RandRange(-100.0f, 100.0f)
 );
 ```
-위 코드처럼 `FMath::RandRange()`에 범위를 넣어주면 된다. float를 넣으면 자동으로 float이 나온다.  
+
+<br/>
+
+**누적값으로 랜덤 뽑기**  
+
+<br/>  
+
+```cpp
+// A, B, C가 있고 각 0.5 0.3 0.2 확률이면
+// 0~ 1사이 랜덤값을 뽑고
+// 랜덤값이 0.5보다 작으면 A
+// 아니면 0.3을 더해주고 다시 비교
+// 랜덤값이 0.8보다 작으면 B
+// 아니면 0.2를 더해주고 다시 비교
+// 마지막이니 무조건 C
+	const float RandValue = FMath::FRandRange(0.f, TotalChance);
+	float AccumulateChance = 0.f;
+
+	for (FItemSpawnRow* Row : AllRows)
+	{
+		AccumulateChance += Row->SpawnChance;
+		if (RandValue <= AccumulateChance)
+		{
+			return Row;
+		}
+	}
+```
 
 <br/>
 
@@ -415,6 +444,8 @@ Health = FMath::Clamp(Health, 0.0f, 100.0f);
 
 ### FMath::Lerp  
 
+<br/>
+
 *FMath::Lerp(Start, End, Alpha)*   
 Lerp는 Linear Interpolation(선형 보간)의 약자.   
 -> 두 지점 사이의 중간값을 비율로 찾기   
@@ -442,6 +473,8 @@ FVector NewScale = FMath::Lerp(StartScale, FVector::ZeroVector, Alpha);
 
 ### Static Class
 
+<br/>
+
 객체를 생성하지 않고 정적으로 U클래스 타입(리플렉션 시스템이 관리하는)으로 정보를 준다.
 
 ```cpp
@@ -454,3 +487,98 @@ DefaultPawnClass = ASpartaCharacter::StaticClass();
 ***
 
 <br/>
+
+### Actor with SpringArm   
+
+<br/>
+
+액터 자체를 움직이다보니 카메라 설정이 어색함.   
+`AddActorLocalRotation`자체가 액터를 움직이게 하기 때문에 설정을 바꿔야한다.   
+
+```cpp
+// 컨트롤러 회전 대신 폰의 회전을 그대로 따르도록 설정
+SpringArmComp->bUsePawnControlRotation = false; 
+SpringArmComp->bInheritPitch = true;
+SpringArmComp->bInheritYaw = true;
+SpringArmComp->bInheritRoll = true;
+
+// 카메라가 너무 흔들리는 게 싫다면 '지연(Lag)' 기능을 켠다.
+SpringArmComp->bEnableCameraLag = true;
+SpringArmComp->CameraLagSpeed = 3.0f; // 숫자가 낮을수록 부드럽게 따라옴
+```
+
+<br/>
+
+***
+
+<br/>
+
+### IsA()   
+
+IsA()는 하위 클래스까지 다 확인해준다.   
+```cpp
+// CoinItem을 상속받은 Big, SmallCoinItem 둘 다 확인
+if(SpawnedActor->IsA(ACoinItem::StaticClass()))
+```
+
+<br/>
+
+***
+
+<br/>
+
+### Damage   
+
+<br/>
+
+데미지 관련해서 이미 구현되어있는 기능을 사용하면 된다.(TakeDamage, ApplyDamage)   
+
+**데미지 받기**   
+```cpp
+// 헤더파일에 메서드를 override 해줌
+virtual float TakeDamage(
+	float DamageAmount,						 // 데미지를 얼마나 입었나.
+	struct FDamageEvent const& DamageEvent,  // 데미지 유형(이벤트) 특정 스킬이라던지 뭐 그런 정보
+	AController* EventInstigator,			 // 데미지를 발생시킨 주체 (ex. 파이어볼을 쏜 놈)
+	AActor* DamageCauser) override;			 // 데미지를 일으킨 오브젝트 (ex. 파이어볼) 
+
+// cpp 파일에 구현
+float ASpartaCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	// ActualDamage는 데미지 계산(방어력, 관통 등등)이 끝나고 실제로 들어온 데미지
+	float AcutalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	Health = FMath::Clamp(Health - DamageAmount, 0.0f, MaxHealth);
+	UE_LOG(LogTemp, Warning, TEXT("Health decreased to: %f"), Health);
+
+	if (Health <= 0.f)
+	{
+		OnDeath();
+	}
+
+	return AcutalDamage;
+}
+```
+
+<br/>
+
+**데미지 입히기**
+
+```cpp
+// cpp파일에서 간단하게 구현가능
+#include "Kismet/GameplayStatics.h"
+
+UGameplayStatics::ApplyDamage(
+	Actor,                     // 데미지 받는 액터
+	ExplosionDamage,           // 데미지 값
+	nullptr,				   // 데미지 유발자
+	this,					   // 데미지를 입힌 오브젝트
+	UDamageType::StaticClass() // 데미지 타입
+);
+```
+
+<br/>
+
+***
+
+<br/>
+

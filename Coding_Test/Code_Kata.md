@@ -359,3 +359,108 @@ int solution(vector<string> babbling) {
 
 <br/>
 
+### 괄호 회전하기(84번)
+
+```cpp
+// unordered_map을 활용하면 더 좋다.
+#include <string>
+#include <vector>
+#include <stack>
+#include <unordered_map>
+
+using namespace std;
+
+bool isValid(string s)
+{
+    stack<char> sstack;
+    unordered_map<char, char> s_map{
+        {')', '('},
+        {'}', '{'},
+        {']', '['}
+    };
+    
+    for(char chr : s)
+    {
+        if(s_map.count(chr))
+        {
+            if(sstack.empty() || s_map[chr] != sstack.top())
+            {
+                return false;
+            }
+            else
+            {
+                sstack.pop();
+            }
+        }
+        else
+        {
+            sstack.push(chr);
+        }
+    }
+    return sstack.empty();
+}
+
+int solution(string s) {
+    int answer = 0;
+    
+    for(int i = 0; i < s.length(); ++i)
+    {
+        if(isValid(s))
+        {
+            answer ++;
+        }
+        
+        char sf = s[0];
+        s = s.substr(1) + sf;
+    }
+    
+    return answer;
+}
+```
+
+<br/>
+
+***
+
+<br/>
+
+### 연속 부분 수열 합의 개수(85번) 
+
+3중 for문 안쓰고 2중으로 쓰는 방법
+```cpp
+#include <vector>
+#include <unordered_set>
+
+using namespace std;
+
+int solution(vector<int> elements) {
+    int n = elements.size();
+    // 원형 수열 처리를 위해 배열 확장
+    vector<int> extended = elements;
+    extended.insert(extended.end(), elements.begin(), elements.end());
+
+    unordered_set<int> unique_sums;
+
+    // 부분 수열의 길이 len을 1부터 n까지 순회
+    for (int len = 1; len <= n; ++len) {
+        int current_sum = 0;
+
+        // 1. 첫 번째 윈도우의 합을 구함 (0번 인덱스부터 len 길이만큼)
+        for (int i = 0; i < len; ++i) {
+            current_sum += extended[i];
+        }
+        unique_sums.insert(current_sum);
+
+        // 2. 윈도우를 한 칸씩 밀면서 합을 업데이트 (슬라이딩)
+        // 시작 지점(i)을 1부터 n-1까지 이동
+        for (int i = 1; i < n; ++i) {
+            // 이전 원소(extended[i-1])는 빼고, 새 원소(extended[i + len - 1])는 더함
+            current_sum -= extended[i - 1];
+            current_sum += extended[i + len - 1];
+            unique_sums.insert(current_sum);
+        }
+    }
+
+    return unique_sums.size();
+}
+```

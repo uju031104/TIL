@@ -1,5 +1,7 @@
 # TroubleShooting
 
+<br/>
+
 ### generated.h 파일
 
 <br/>
@@ -63,9 +65,108 @@ generated.h 헤더파일 위치
 **6. 해결방법**   
 이미 `GetWorld()->GetTimeSeconds()`를 사용하고 있어서 DeltaTime을 쓴 것이 의미없이 프레임 값을 나눠준 것이 됐다. DeltaTime을 빼주니 해결이 됐다.
 
-   
+<br/>
+
+***
+
+<br/>
 
 
+### 카메라 시점 전환 문제 
 
+<br/>
 
- 
+바닥에 있을땐 컨트롤러가 카메라를 제어하고 공중에 떠있으면 폰의 회전에 SpringArm/Camera가 같이 돌아가는 형태   
+
+**1. 발생한 현상**   
+바닥 -> 공중으로 갈 때 시점이 확 바껴버리는 현상   
+
+**2. 원인**   
+공중은 폰의 회전값을 기준으로 하기 때문에 바닥에서의 카메라 시점과 달라짐
+
+**3. 해결방법**   
+RInterpTo()를 사용하여 부드러운 화면 전환을 구현    
+
+<br/>
+
+```cpp
+//RInterpTo()로 구현
+FRotator CurrentRotation = PC->GetControlRotation();
+FRotator TargetRotation = GetActorRotation();
+
+FRotator DelayRotation = FMath::RInterpTo(
+	CurrentRotation,
+	TargetRotation,
+	DeltaTime,
+	CameraRotationInterpSpeed
+);
+
+PC->SetControlRotation(DelayRotation);
+```
+
+<br/>
+
+***
+
+<br/>
+
+### 카메라 시점 전환 문제2   
+
+<br/>
+
+**1. 발생한 현상**   
+RInterpTo()가 제대로 적용되지 않는 현상   
+
+**2. 원인**   
+전환되는 순간 컨트롤러 로테이션값 -> 액터의 로테이션 값으로 바뀌는데 마우스를 조금이라도 움직이면 로직이 꼬여서 실행이 안된다.
+
+**3. 해결방법**   
+전환되는 순간 마우스 컨트롤을 못하게 막았다.   
+
+<br/>
+
+```cpp
+	if (bGrounded != bWasOnGround)
+	{
+		if (bGrounded)
+		{
+			// 카메라를 컨트롤러가 제어
+			SpringArmComp->bUsePawnControlRotation = true;
+			// 착륙 시 폰의 회전값(공중에선 폰에 회전과 함께 카메라가 움직임)을 카메라 컨트롤러와 일치시킴
+			if (PC)
+			{
+				PC->SetControlRotation(GetActorRotation());
+			}				
+			// 플레이어가 카메라 제어
+			bIsNotRotate = false;
+		}
+		else
+		{
+			// 플레이어가 제어하지 못함
+			bIsNotRotate = true;
+		}
+		bWasOnGround = bGrounded;
+	}
+
+	if (bIsNotRotate && PC)
+	{
+
+		FRotator CurrentRotation = PC->GetControlRotation();
+		FRotator TargetRotation = GetActorRotation();
+
+		FRotator DelayRotation = FMath::RInterpTo(
+			CurrentRotation,
+			TargetRotation,
+			DeltaTime,
+			CameraRotationInterpSpeed
+		);
+
+		PC->SetControlRotation(DelayRotation);
+
+		if (CurrentRotation.Equals(TargetRotation, 0.1f))
+		{
+			bIsNotRotate = false;
+			SpringArmComp->bUsePawnControlRotation = false;
+		}
+	}
+```
