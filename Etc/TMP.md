@@ -3965,6 +3965,81 @@ float s = FMath::Sin(AngRad);
 float r = FMath::DegreesToRadians(Deg);
 ```
 
+  </p>
+</details>
+
+#### <!-- 26.04.27 -->
+<details> 
+  <summary>26.04.27</summary>
+  <p>
+
+**`FTableRowBase`**   
+언리얼 엔진에서 “이 구조체는 데이터 테이블로 쓸 수 있다”라고 인식하게 해주는 베이스 구조체입니다.   
+
+**`TSoftClassPtr<AActor>`**   
+소프트 레퍼런스로, 클래스를 바로 로드하지 않고도 경로만 기억해둘 수 있습니다.   
+필요할 때 `Get()`을 통해 실제 `UClass*`를 얻어 인스턴스를 생성할 수 있습니다.
+
+언리얼 엔진에서 **GameMode**와 **GameState**는 게임의 전역 정보를 유지하고, 필요할 경우 멀티플레이어 환경에서 해당 정보를 **서버**와 **클라이언트** 간에 동기화하는 역할을 합니다.   
+
+**GameMode**   
+“게임의 규칙(룰)”을 정의하고 관리합니다.   
+어떤 캐릭터를 스폰할지, 플레이어가 사망했을 때 어떻게 처리할지를 결정합니다.   
+멀티플레이에서는 **서버 전용**으로 동작합니다(클라이언트에는 존재하지 않음).   
+  
+
+**GameState**   
+게임 플레이 전반에서 “공유되어야 하는 전역 상태”를 저장합니다. `GameState`는 기본적으로 “레벨당 1개” 존재하며, 엔진 내부에서 데이터 동기화를 고려해 설계되었기에 전역 데이터 관리용으로 적합합니다.   
+대표적으로 점수, 남은 시간, 현재 게임 단계(Phase), 스폰된 오브젝트의 총 개수 등을 저장합니다.   
+멀티플레이에서는 서버가 관리하고, 클라이언트는 이를 **자동으로 동기화** 받아볼 수 있습니다.   
+
+**싱글 플레이**에서도 `GameState`가 굳이 필요 없을 것 같지만, “전역적으로 공유해야 할 정보”를 한 군데서 관리하면 유지보수가 더 편해집니다. “몇 개의 아이템이 스폰되었는지”, “현재 게임 진행도는 어느 정도인지” 같은 데이터를 `GameState`에서 일괄 관리할 수 있기 때문입니다.   
+
+**Game Instance**  
+프로젝트가 시작될 때 (에디터에서 게임 실행을 누른 시점)부터 애플리케이션이 완전히 종료될 때까지 **유일하게 계속 살아있는 객체**입니다.   
+맵이 전환되어도 **파괴되지 않으므로**, 여기서 전역 데이터를 유지할 수 있습니다.
+
+**Seamless Travel**   
+멀티플레이 환경에서 주로 사용되는 레벨 전환 방식으로, `GameState`/`PlayerController` 등을 **파괴하지 않고** 그대로 다음 맵으로 넘어가는 기능입니다.   
+Seamless Travel을 사용하면 대부분의 객체를 유지할 수 있지만, 설정과 로직이 조금 더 복잡하므로, 싱글 플레이 전용 간단 프로젝트라면 `GameInstance`를 사용하기가 쉽습니다.   
+
+**<폰 움직이게 하기>**   
+
+Character 처럼 AddMovementInput으로 하려고 했는데 폰은 다르다고 해서 찾아봤다.   
+
+```cpp
+class UFloatingPawnMovement;
+
+UCLASS()
+class ABaseGun : public APawn
+{
+    // ... 기존 코드 ...
+
+protected:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    TObjectPtr<UFloatingPawnMovement> MovementComp;
+};
+
+
+#include "GameFramework/FloatingPawnMovement.h" // 헤더 포함 필수!
+
+ABaseGun::ABaseGun()
+{
+    // ... 기존 컴포넌트 생성 코드 ...
+
+    // FloatingPawnMovement 생성
+    // 이 컴포넌트는 생성만 해두면 내부적으로 AddMovementInput을 감지해서 작동합니다.
+    MovementComp = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("MovementComp"));
+}
+```
+
+하지만 움직이지 않아서 찾아봤더니
+
+```cpp
+// 무브먼트 컴포넌트가 루트 컴포넌트를 움직이게 명시적으로 설정
+MovementComp->UpdatedComponent = CapsuleComp;
+// 이렇게 안하면 안움직이는 경우가 있다고 한다.
+```
 
   </p>
 </details>
