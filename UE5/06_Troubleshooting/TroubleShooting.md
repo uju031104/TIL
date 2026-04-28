@@ -170,3 +170,103 @@ RInterpTo()가 제대로 적용되지 않는 현상
 		}
 	}
 ```
+<br/>
+
+***
+
+<br/>
+
+### Start 버튼을 누르기 전에 GameState가 실행되는 현상   
+
+<br/>
+
+**1. 발생한 현상**   
+Start버튼을 누르지 않았는데 Wave가 시작됐다고 출력이 된다.   
+
+**2. 원인**   
+게임실행을 했을 때 GameState의 BeginPlay()도 바로 실행되기 때문에 발생했다.   
+
+**3. 해결방법**   
+GameInstance에 bool 변수를 하나 만들어서 Start 버튼을 눌렀을때 상태를 변화시키고 그 조건을 만족하면 BeginPlay()의 StartLevel이 실행되도록 바꿨다.   
+
+<br/>
+
+```cpp
+// GameState의 BeginPlay()에 조건 추가
+if (UMyGameInstance* GameInstance = Cast<UMyGameInstance>(GetGameInstance()))
+{
+	if (GameInstance->bShouldStartRightNow)
+	{
+		StartLevel();
+	}
+}
+
+// PlayerController의 StartGame()에 조건 추가
+if (UMyGameInstance* MyGameInstance = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
+{
+	MyGameInstance->CurrentLevelIndex = 0;
+	MyGameInstance->TotalScore = 0;
+	MyGameInstance->bShouldStartRightNow = true;
+}
+
+UGameplayStatics::OpenLevel(GetWorld(), FName("BasicLevel"));
+```
+
+<br/>
+
+***
+
+<br/>
+
+### 아이템이 사라지면 디버프 효과가 사라지지 않는 현상   
+
+**1. 발생한 현상**   
+아이템을 먹으면 아이템이 사라지는데 이때 아이템이 준 디버프 효과가 계속 지속됨   
+
+**2. 원인**   
+느려지는 아이템을 먹고 Destroy()를 해주면 아이템 클래스에 있는 Timer()가 사라져버린다.   
+
+**3. 해결방법**   
+Character 클래스 내에서 느려지는 효과를 구현하고 아이템은 그 명령만 내려주게 바꾸면 된다.   
+
+```cpp
+// 타이머를 Character의 메서드에 넣어준다. 
+void AMyCharacter::SetPlayerSlow(float Amount)
+{
+	NormalSpeed *= Amount;
+	WalkSpeed = NormalSpeed * 0.5f;
+	SprintSpeed = NormalSpeed * 2.0f;
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+	GetCharacterMovement()->GravityScale /= Amount;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		SlowTimerHandle,
+		this,
+		&AMyCharacter::SetPlayerNormal,
+		5.f,
+		false
+	);
+}
+
+void AMyCharacter::SetPlayerNormal()
+{
+	NormalSpeed = 600.f;
+	WalkSpeed = NormalSpeed * 0.5f;
+	SprintSpeed = NormalSpeed * 2.0f;
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+	GetCharacterMovement()->GravityScale = 1.5f;
+}
+
+// 아이템에선 불러오기만 하면 된다.
+void AMySlowingItem::ActivateItem(AActor* Activator)
+{
+	if (Activator && Activator->ActorHasTag("Player"))
+	{
+		if (AMyCharacter* PlayerCharacter = Cast<AMyCharacter>(Activator))
+		{
+			PlayerCharacter->SetPlayerSlow(SlowingAmount);
+		}
+	}
+	DestroyItem();
+}
+```

@@ -4043,3 +4043,278 @@ MovementComp->UpdatedComponent = CapsuleComp;
 
   </p>
 </details>
+
+#### <!-- 26.04.28 -->
+<details> 
+  <summary>26.04.28</summary>
+  <p>
+
+**<OpenLevel 로직>**   
+
+```cpp
+// 레벨을 오픈하면(OpenLevel) BeginPlay()가 다시 실행된다.
+if (LevelMapNames.IsValidIndex(CurrentLevelIndex))
+{
+	UGameplayStatics::OpenLevel(GetWorld(), LevelMapNames[CurrentLevelIndex]);
+}
+```
+
+**<게임종료 구현>**   
+
+```cpp
+#include "Kismet/KismetSystemLibrary.h"
+
+void AMyPlayerController::ExitGame()
+{
+    // 1. 월드 컨텍스트 가져오기 (현재 게임 세상)
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    // 2. 종료 함수 호출
+    // - World: 현재 월드
+    // - Target: 특정 플레이어 (보통 GetFirstPlayerController)
+    // - QuitPreference: 종료 방식 (보통 Quit)
+    // - bIgnorePlatformRestrictions: 플랫폼 제한 무시 여부 (보통 false)
+    UKismetSystemLibrary::QuitGame(
+        World, 
+        World->GetFirstPlayerController(), 
+        EQuitPreference::Quit, 
+        false
+    );
+}
+```
+
+**<Start버튼을 누르기 전에 GameState가 실행되는 현상>**   
+
+발생현상: Start버튼을 누르지 않았는데 Wave가 시작됐다고 출력이 된다.   
+원인: 게임실행을 했을 때 GameState의 BeginPlay()도 바로 실행되기 때문에 발생했다.   
+해결방법: GameInstance에 bool 변수를 하나 만들어서 Start 버튼을 눌렀을때 상태를 변화시키고 그 조건을 만족하면 BeginPlay()의 StartLevel이 실행되도록 바꿨다.   
+
+```cpp
+// GameState의 BeginPlay()에 조건 추가
+if (UMyGameInstance* GameInstance = Cast<UMyGameInstance>(GetGameInstance()))
+{
+	if (GameInstance->bShouldStartRightNow)
+	{
+		StartLevel();
+	}
+}
+
+// PlayerController의 StartGame()에 조건 추가
+if (UMyGameInstance* MyGameInstance = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
+{
+	MyGameInstance->CurrentLevelIndex = 0;
+	MyGameInstance->TotalScore = 0;
+	MyGameInstance->bShouldStartRightNow = true;
+}
+
+UGameplayStatics::OpenLevel(GetWorld(), FName("BasicLevel"));
+```
+
+<br/>
+
+**<Timer는 매개변수 없는 함수를 써야한다>**   
+
+늘 매개변수 없는 함수를 넣다보니 UFUNCTION()으로 등록하고 이름만 전달하면 되는줄 알았는데 아니었다.   
+
+람다식으로 바꿔서 하거나 매개변수를 없애야했다.   
+
+```cpp
+// 1.오류가 난 코드
+void AMySlowingItem::StartSlowing(AMyCharacter* Actor)
+{
+	Actor->SetPlayerSlow(0.5f);
+
+	GetWorld()->GetTimerManager().SetTimer(
+		SlowTimerHandle,
+		this,
+		&AMySlowingItem::StopSlowing,
+		5.f,
+		false
+	);
+}
+
+void AMySlowingItem::StopSlowing(AMyCharacter* Actor)
+{
+	Actor->SetPlayerNormal();
+}
+
+
+// 2.람다식을 사용해서 수정
+void AMySlowingItem::StartSlowing(AMyCharacter* Actor)
+{
+    Actor->SetPlayerSlow(0.5f);
+
+    // 람다를 사용하여 Actor를 캡처함
+    GetWorld()->GetTimerManager().SetTimer(
+        SlowTimerHandle,
+        [Actor]() // Actor 포인터를 람다 내부로 전달
+        {
+            if (Actor) // 안전을 위해 유효성 검사
+            {
+                Actor->SetPlayerNormal();
+            }
+        },
+        5.f,
+        false
+    );
+}
+
+
+// 3.매개변수를 멤버 변수로 저장해서 사용
+// 헤더 파일 (.h)에 추가
+TWeakObjectPtr<AMyCharacter> SlowedPlayer; // weak_ptr 활용
+
+// 소스 파일 (.cpp)
+void AMySlowingItem::StartSlowing(AMyCharacter* Actor)
+{
+    SlowedPlayer = Actor; // 멤버 변수에 저장
+    Actor->SetPlayerSlow(0.5f);
+
+    GetWorld()->GetTimerManager().SetTimer(
+        SlowTimerHandle,
+        this,
+        &AMySlowingItem::StopSlowing, // 인자 없는 함수로 호출
+        5.f,
+        false
+    );
+}
+
+void AMySlowingItem::StopSlowing() // 인자를 없앰
+{
+    if (SlowedPlayer.IsValid()) // weak_ptr이 살아있는지 확인
+    {
+        SlowedPlayer->SetPlayerNormal();
+    }
+}
+```
+
+3번째 수정본에서 약한 참조를 사용한 이유는 아이템 효과가 지속되는 5초 동안 플레이어가 게임을 나가거나, 다른 이유로 캐릭터 객체가 파괴될 수도 있기 때문이다.   
+5초동안 그냥 지켜보는 느낌   
+
+<br/>
+
+**<아이템이 사라지면 디버프 효과가 사라지지 않는 현상>**   
+
+**1. 발생한 현상**   
+아이템을 먹으면 아이템이 사라지는데 이때 아이템이 준 디버프 효과가 계속 지속됨   
+
+**2. 원인**   
+느려지는 아이템을 먹고 Destroy()를 해주면 아이템 클래스에 있는 Timer()가 사라져버린다.   
+
+**3. 해결방법**   
+Character 클래스 내에서 느려지는 효과를 구현하고 아이템은 그 명령만 내려주게 바꾸면 된다.   
+
+```cpp
+// 타이머를 Character의 메서드에 넣어준다. 
+void AMyCharacter::SetPlayerSlow(float Amount)
+{
+	NormalSpeed *= Amount;
+	WalkSpeed = NormalSpeed * 0.5f;
+	SprintSpeed = NormalSpeed * 2.0f;
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+	GetCharacterMovement()->GravityScale /= Amount;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		SlowTimerHandle,
+		this,
+		&AMyCharacter::SetPlayerNormal,
+		5.f,
+		false
+	);
+}
+
+void AMyCharacter::SetPlayerNormal()
+{
+	NormalSpeed = 600.f;
+	WalkSpeed = NormalSpeed * 0.5f;
+	SprintSpeed = NormalSpeed * 2.0f;
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+	GetCharacterMovement()->GravityScale = 1.5f;
+}
+
+// 아이템에선 불러오기만 하면 된다.
+void AMySlowingItem::ActivateItem(AActor* Activator)
+{
+	if (Activator && Activator->ActorHasTag("Player"))
+	{
+		if (AMyCharacter* PlayerCharacter = Cast<AMyCharacter>(Activator))
+		{
+			PlayerCharacter->SetPlayerSlow(SlowingAmount);
+		}
+	}
+	DestroyItem();
+}
+```
+  </p>
+</details>
+
+<br/>
+
+**<블러처리 하는 방법>**  
+
+WBP에 background blur라는 속성이 있다.   
+이걸 기존 HUD에 넣거나 따로 만들어서 레이어를 쌓아주면 된다.   
+
+```cpp
+// Blur 세팅값 변경하는 방법
+// 헤더파일 필요
+#include "Components/BackgroundBlur.h"
+
+// 블러 강도를 변경하는 함수
+void AMyPlayerController::SetBlurAmount(float Intensity)
+{
+	if (BlurWidgetInstance)
+	{
+		UBackgroundBlur* BlurComp = Cast<UBackgroundBlur>(BlurWidgetInstance->GetWidgetFromName(TEXT("Blur")));
+		if (BlurComp)
+		{
+			BlurComp->SetBlurStrength(Intensity);
+		}
+	}
+}
+
+void AMyPlayerController::BlurOn()
+{
+	SetBlurAmount(10.0f);
+	GetWorld()->GetTimerManager().SetTimer(
+		BlurTimerHandle,
+		[this]()
+		{
+			this->SetBlurAmount(0.0f);
+		},
+		3.0f,
+		false
+	);
+}
+
+// BlindItem.cpp
+#include "MyBlindItem.h"
+#include "MyPlayerController.h"
+#include "Kismet/GameplayStatics.h" // Controller를 가져오기 위해서
+
+void AMyBlindItem::ActivateItem(AActor* Activator)
+{
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+	{
+		if (AMyPlayerController* PlayerController = Cast<AMyPlayerController>(PC))
+		{
+			PlayerController->BlurOn();
+			DestroyItem();
+		}
+	}
+}
+```
+
+<br/>
+
+**<UPROPERTY(meta = (BindWidget))>**   
+
+이 키워드를 사용해서 실제 WBP내의 컴포넌트 이름 자체를 C++ Class에서 변수로 사용할 수 있다.(GetWidgetFromName 사용 안해도 됨)   
+하지만 WBP에 들어가서 UUserWidget을 상속받은 클래스로 세팅을 해줘야한다.   
+현재 프로젝트는 PlayerController에서 UI를 세팅하고 있어서 불가능하다.   
+
+```cpp
+UPROPERTY(meta = (BindWidget))
+UBackgroundBlur* Blur;
+```
