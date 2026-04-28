@@ -4246,8 +4246,6 @@ void AMySlowingItem::ActivateItem(AActor* Activator)
 	DestroyItem();
 }
 ```
-  </p>
-</details>
 
 <br/>
 
@@ -4318,3 +4316,6 @@ void AMyBlindItem::ActivateItem(AActor* Activator)
 UPROPERTY(meta = (BindWidget))
 UBackgroundBlur* Blur;
 ```
+
+  </p>
+</details>
