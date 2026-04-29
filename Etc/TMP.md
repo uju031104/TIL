@@ -4354,8 +4354,79 @@ int solution(vector<vector<string>> clothes) {
 }
 ```
 
-하루종일 과제
+**<맵이 바뀔때 GetWorld()에서 크래쉬가 나느 현상>**   
+
+tick을 쓰면 더 간단한데 이상하게 적용이 안돼서 BeginPlay로 구현했는데 레벨이 바뀌고 월드가 바뀌는순간 nullptr 역참조로 오류가 난다.   
+
+```cpp
+// 억지 BeginPlay() 구현
+void AMyCoinItem::BeginPlay()
+{
+	Super::BeginPlay();
+
+	GetWorldTimerManager().SetTimer(
+		CoinRotateTimerHandle,
+		[this]()
+		{
+			UWorld* World = GetWorld();
+			if (World && IsValid(this))
+			{
+				SetActorRotation(FRotator(0.f, 70.f * GetWorld()->GetTimeSeconds(), 0.f));
+			}
+		},
+		0.01f,
+		true
+	);
+}
+
+// 근데 다시 해보니 Tick()이 잘 된다. 뻘짓했다...
+void AMyCoinItem::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	AddActorLocalRotation(FRotator(0.f, 70.f * DeltaTime, 0.f));
+}
+```
+
+
+**<웨이브가 바뀔때 스폰된 액터가 누적되는 현상>**   
+
+레벨은 OpenLevel()로 깔끔하게 밀어줘서 문제가 안생기는데 웨이브는 계속 누적된다.   
+
+배열을 새로 만들어서 거기에 스폰된 액터들을 집어넣었다가 웨이브가 끝나면 없애주면 된다.   
+
+```cpp
+// 헤더파일
+UPROPERTY()
+TArray<AActor*> SpawnedItems;
+
+// 웨이브가 시작되고 스폰될때
+AActor* SpawnedActor = SpawnVolume->SpawnRandomItem();
+if (SpawnedActor)
+{
+    SpawnedItems.Add(SpawnedActor); // 리스트에 추가
+}
+
+// 웨이브가 끝날때
+for (AActor* Item : SpawnedItems)
+    {
+        if (Item && Item->IsValidLowLevel())
+        {
+            Item->Destroy();
+        }
+    }
+    SpawnedItems.Empty();
+```
 
   </p>
 </details>
 
+#### <!-- 26.04.30 -->
+<details> 
+  <summary>26.04.30</summary>
+  <p>
+
+
+
+  </p>
+</details>
