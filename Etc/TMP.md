@@ -4319,3 +4319,43 @@ UBackgroundBlur* Blur;
 
   </p>
 </details>
+
+#### <!-- 26.04.29 -->
+<details> 
+  <summary>26.04.29</summary>
+  <p>
+
+**<코드카타 90번>**
+
+각 a, b, c ,d 개의 가능한 모든 조합의 경우의 수는 (a + 1) * (b + 1) * (c + 1) * (d + 1) - 1이다.   
+마지막 -1은 모두 0개일 경우의 수를 빼주는것   
+
+```cpp
+#include <string>
+#include <vector>
+#include <unordered_map>
+
+using namespace std;
+
+int solution(vector<vector<string>> clothes) {
+    int answer = 1;
+    unordered_map<string, int> clothes_num;
+    
+    for(const vector<string>& str : clothes)
+    {
+        clothes_num[str[1]]++;
+    }
+    
+    for(const auto& c : clothes_num)
+    {
+        answer = answer * (c.second + 1);
+    }
+    return answer - 1;
+}
+```
+
+하루종일 과제
+
+  </p>
+</details>
+
