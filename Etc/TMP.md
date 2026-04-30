@@ -4426,7 +4426,84 @@ for (AActor* Item : SpawnedItems)
   <summary>26.04.30</summary>
   <p>
 
+**<전위/후위 증가 연산자>**   
+
+전위 증가   
+값 증가 -> 증가된 값 반환   
+자기 자신의 참조(Reference)를 반환하므로 불필요한 객체 복사가 발생하지 않습니다.   
+
+후위 증가   
+기존 값의 복사본 생성 -> 값 증가 -> 복사본 반환   
+이전 값을 임시 객체로 보관해야 하므로 메모리 복사 비용이 발생합니다.   
+
+```cpp
+// 전위 증가 연산자 (++it)
+Iterator& operator++() {
+    this->ptr += 1; // 1. 값을 먼저 증가시키고
+    return *this;   // 2. 자기 자신의 참조를 반환합니다.
+}
+
+// 후위 증가 연산자 (it++)
+Iterator operator++(int) {
+    Iterator temp = *this; // 1. 현재 상태의 복사본을 만들고
+    this->ptr += 1;        // 2. 값을 증가시킨 뒤,
+    return temp;           // 3. 복사본(이전 상태)을 반환합니다.
+}
+```
+
+<br/>
 
 
+**<총기 반동 카메라 연출하기>**   
+
+먼저 블루프린트 클래스를 하나 만들어서 카메라 흔들림 정도를 설정한 후 이걸 C++에 가서 연결만 해주면 된다.   
+
+<br/>
+
+1.CameraShakeBase 클래스를 상속받은 BP를 하나 만들어준다.   
+2.Camera Shake Pattern 칸에 들어가서 Wave Oscillator Camera Shake Pattern을 클릭 후 하위 메뉴로 들어간다.   
+3.Location, Rotation 등 흔들림을 주고싶은 곳으로 가서 값을 적절히 설정해준다.   
+4.Duration으로 가서 시간을 설정해준다.   
+
+설정 값 설명   
+1.Amplitude: 진폭, 흔들리는 크기   
+2.Frequency: 주파수, 흔들리는 속도   
+3.Duration: 흔들리는 시간   
+4.Blend In Time: 흔들림이 부드럽게 시작되는 시간   
+5.Blend Out Time: 흔들림이 부드럽게 끝나는 시간   
+
+이렇게 설정 후 C++ 코드를 작성해주면 끗.   
+
+<br/>
+
+```cpp
+// 1. Build.cs에 추가해주기
+// UMG 추가하던 것 처럼 추가해준다.
+PublicDependencyModuleNames.AddRange(new string[] { 
+    "Core", 
+    "CoreUObject", 
+    "Engine", 
+    "InputCore", 
+    "EnhancedInput", 
+    "GameplayCameras" // 모듈 추가
+});
+
+// 2. 헤더파일
+class UCameraShakeBase;
+// 총기 반동을 위한 클래스 타입
+UPROPERTY(EditDefaultsOnly, Category = "Combat")
+TSubclassOf<UCameraShakeBase> FireShakeClass;
+
+// 3. C++ 파일
+// 컨트롤러 -> 카메라 매니저 -> BP 클래스 실행
+if (GetWorld())
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (PC && PC->PlayerCameraManager && FireShakeClass)
+	{
+		PC->PlayerCameraManager->StartCameraShake(FireShakeClass);
+	}
+}
+```
   </p>
 </details>
