@@ -4507,3 +4507,111 @@ if (GetWorld())
 ```
   </p>
 </details>
+
+#### <!-- 26.05.01 -->
+<details> 
+  <summary>26.05.01</summary>
+  <p>
+
+**<코드카타 92번>**   
+
+별 생각없이 코드를 짰는데 시간초과가 떴다.(솔직히 실행 직전에 뜰 줄 알긴했음)   
+
+```cpp
+// 매우 비효율적인 코드
+// 모든 루프를 다 돌아야함
+#include <string>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+int solution(vector<int> priorities, int location) {
+
+    int answer = 0;
+    vector<int> temp_vec;
+    priority_queue<int> priority_process;
+
+    for(const int& i : priorities)
+    {
+        priority_process.push(i);
+    }
+
+    while(!priority_process.empty())
+    {
+        for(int i = 0; i < priorities.size(); ++i)
+        {
+            if(priorities[i] == priority_process.top())
+            {
+                priority_process.pop();
+                temp_vec.push_back(i);
+            }
+        }
+    }
+    
+    for(int i = 0; i < temp_vec.size(); ++i)
+    {
+        if(location == temp_vec[i])
+        {
+            answer = i + 1;
+        }
+    }
+    return answer;
+}
+```
+
+<br/>
+
+`queue`를 사용하면서 인덱스 값도 확인을 해야하는 상황인데 `pair<>`의 존재가 이때 생각났다.   
+싹 지우고 다시 구현했다.   
+
+```cpp
+// 수정 후 코드
+#include <string>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+int solution(vector<int> priorities, int location) {
+    int answer = 0;
+    queue<pair<int, int>> que;
+    priority_queue<int> pri_que;
+
+    for (int i = 0; i < priorities.size(); ++i) {
+        que.push({i, priorities[i]});
+        pri_que.push(priorities[i]);
+    }
+    
+    while(!pri_que.empty())
+    {
+        if(que.front().second < pri_que.top())
+        {
+            que.push(que.front());
+            que.pop();
+        }
+        else if(que.front().second == pri_que.top())
+        {
+            ++answer;
+            if(que.front().first == location)
+            {
+                return answer;
+            }
+            que.pop();
+            pri_que.pop();
+        }
+    }
+    return answer;
+}
+```
+
+**<팀프로젝트 준비하기>**   
+
+내가 맡은 곳은 몬스터 AI, 보스 몬스터   
+
+AI관련이랑 Behavior Tree 공부   
+
+
+
+  </p>
+</details>
