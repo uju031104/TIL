@@ -4611,6 +4611,454 @@ int solution(vector<int> priorities, int location) {
 
 AI관련이랑 Behavior Tree 공부   
 
+  </p>
+</details>
+
+#### <!-- 26.05.02 -->
+<details> 
+  <summary>26.05.02</summary>
+  <p>
+
+**<NavMeshBoundsVolume 사용하기>**   
+
+ACharacter로 만든 액터가 이동할 수 있는 범위를 자동으로 만들어준다.   
+P를 눌러보면 녹색으로 범위가 나타난다.   
+
+<br/>
+
+**<Behavior Tree와 Black Board>**   
+
+`Behavior Tree`는 기본적으로 위에서 아래, 왼쪽에서 오른쪽으로 순서가 매겨진다.   
+
+`Selector`에서 행동을 선택할 수 있다.   
+
+`Sequence`에서 순서를 정한다(왼쪽 -> 오른쪽 순)   
+
+`Task`는 기본으로 정해주는 것을 쓸 수도 있고 위쪽에 `NewTask`를 입력해서 새로운 Task를 만들어줄 수 있다.   
+
+<br/>
+
+**<Task 만들기>**   
+
+`BTTask_taskname`에 들어오면 EventGraph가 있는데 왼쪽 Functions의 Override를 눌러서 나오는 기본 메서드를 사용할 수 있다.   
+
+기본 메서드중 `Execute AI`는 `BeginPlay`와 같은 역할을 하고 `Finish Execute`로 끝맺음을 해야한다.    
+
+<br/>
+
+**<언리얼에서 권장하는 BT사용방식>**   
+
+BT/BB: 에디터에서 사용(시각적 이점이 매우 높음)   
+BTTask/BTService/BTDecorator: 이 노드들은 복잡한 로직을 다룰 수 있게 C++ 클래스로 상속받아 작성   
+
+커스텀 AIController: C++ 클래스로 부모를 만들고 블루프린트로 상속하는 방식   
+
+<br/>
+
+**<GetRandomReachablePointInRadius 사용하기>**   
+
+`GetRandomReachablePointInRadius`는 특정 위치에서 정해준 범위 내의 랜덤한 포인트를 반환한다.   
+
+먼저 `"NavigationSystem"`을 Build.cs 파일에 추가해준다.   
+`#include "NavigationSystem.h"`은 C++ 파일에 추가해준다.   
+`UNavigationSystemV1` 클래스의 멤버함수인 `GetRandomReachablePointInRadius`를 호출해서 사용하면 된다.   
+GetRandomReachablePointInRadius(현재위치, 반경, 다음위치)   
+
+```cpp
+// BTTask 코드
+
+// .h 파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BTTask_ZombieRoam.generated.h"
+
+UCLASS()
+class MONSTER_AI_PROJECT_API UBTTask_ZombieRoam : public UBTTaskNode
+{
+	GENERATED_BODY()
+	
+public:
+	UBTTask_ZombieRoam();
+
+	// 태스크가 실행될 때 호출되는 핵심 함수
+	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+protected:
+	// 노드 이름을 에디터에서 식별하기 좋게 설정
+	virtual FString GetStaticDescription() const override;
+
+	// 에디터에서 조절 가능한 탐색 범위 변수
+	UPROPERTY(EditAnywhere, Category = "AI")
+	float SearchRadius = 1000.0f;
+};
+
+// .cpp 파일
+#include "BTTask_ZombieRoam.h"
+#include "Zombie.h"
+#include "ZombieAIController.h"
+#include "NavigationSystem.h"
+#include "Blueprint//AIBlueprintHelperLibrary.h"
+
+UBTTask_ZombieRoam::UBTTask_ZombieRoam()
+{
+	NodeName = TEXT("Zombie Roam"); // BT 에디터에 표시될 이름
+}
+
+EBTNodeResult::Type UBTTask_ZombieRoam::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
+	if (!ZombieAIController) return EBTNodeResult::Failed;
+
+	AZombie* Zombie = Cast<AZombie>(ZombieAIController->GetPawn());
+	if (!Zombie) return EBTNodeResult::Failed;
+
+	// 1. 좀비의 현재 위치
+	FVector Origin = Zombie->GetActorLocation();
+
+	// 2. 내비게이션 시스템 가져오기
+	UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+
+	// 3. 반경 내 랜덤 위치 찾기
+	FNavLocation NextLocation;
+	if (NavSystem->GetRandomReachablePointInRadius(Origin, SearchRadius, NextLocation))
+	{
+		// 4. 찾은 위치로 이동 명령 (AI Move To)
+		ZombieAIController->MoveToLocation(NextLocation.Location);
+
+		// 5. 성공 반환
+		return EBTNodeResult::Succeeded;
+	}
+	
+	return EBTNodeResult::Failed;
+}
+
+FString UBTTask_ZombieRoam::GetStaticDescription() const
+{
+	return TEXT("Zombie performs roam");
+}
+```
+
+**<위 코드에서의 문제점>**   
+
+에디터의 BT에 위의 Task 옆에 `Wait`를 걸어놨다. 근데 문제는 Task를 실행하는 순간 바로 `Succeeded`를 반환하기 때문에 이동이 끝나고 `Wait`를 하는게 아니라 이동하는 순간 `Wait`가 시작된다.(이동하다 멈추지는 않고 `Wait`의 시간이 이동하는 순간부터 줄어든다.)   
+그래서 실제 이동이 다 끝나고 나면 `Succeeded`가 반환되게 만들어야한다.   
+
+```cpp
+// 수정 후 코드
+// 많이 복잡하다...
+// Build.cs에 "AIModule" 추가!
+
+// .h 파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BTTask_ZombieRoam.generated.h"
+
+UCLASS()
+class MONSTER_AI_PROJECT_API UBTTask_ZombieRoam : public UBTTaskNode
+{
+	GENERATED_BODY()
+	
+public:
+	UBTTask_ZombieRoam();
+
+	// 태스크가 실행될 때 호출되는 핵심 함수
+	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+protected:
+	// 태스크 중단 시 처리
+	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+	// 이동이 완료되었을 때 호출될 커스텀 함수
+	void OnMoveCompleted(struct FAIRequestID RequestID, const struct FPathFollowingResult& Result);
+
+	// 노드 이름을 에디터에서 식별하기 좋게 설정
+	virtual FString GetStaticDescription() const override;
+
+	// 에디터에서 조절 가능한 탐색 범위 변수
+	UPROPERTY(EditAnywhere, Category = "AI")
+	float SearchRadius = 1000.0f;
+
+private:
+	// 나중에 이벤트를 끄기 위해 저장해두는 컴포넌트 포인터
+	UBehaviorTreeComponent* MyOwnerComp;
+};
+
+
+// .cpp 파일
+#include "BTTask_ZombieRoam.h"
+#include "Zombie.h"
+#include "ZombieAIController.h"
+#include "NavigationSystem.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+
+UBTTask_ZombieRoam::UBTTask_ZombieRoam()
+{
+	NodeName = TEXT("Zombie Roam"); // BT 에디터에 표시될 이름
+	// 이 태스크는 Tick이나 이벤트를 기다려야 하므로 latent(지연) 태스크임을 명시할 수 있음
+	bNotifyTick = false;
+	MyOwnerComp = nullptr;
+}
+
+EBTNodeResult::Type UBTTask_ZombieRoam::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
+	if (!ZombieAIController) return EBTNodeResult::Failed;
+
+	AZombie* Zombie = Cast<AZombie>(ZombieAIController->GetPawn());
+	if (!Zombie) return EBTNodeResult::Failed;
+
+	// 1. 좀비의 현재 위치
+	FVector Origin = Zombie->GetActorLocation();
+
+	// 2. 내비게이션 시스템 가져오기
+	UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (!NavSystem) return EBTNodeResult::Failed;
+
+	// 3. 반경 내 랜덤 위치 찾기
+	FNavLocation NextLocation;
+	if (NavSystem->GetRandomReachablePointInRadius(Origin, SearchRadius, NextLocation))
+	{
+		// 4. 이동 완료 이벤트를 수신하기 위해 델리게이트 연결
+		UPathFollowingComponent* PFollowComp = ZombieAIController->GetPathFollowingComponent();
+		if (PFollowComp)
+		{
+			MyOwnerComp = &OwnerComp;
+			PFollowComp->OnRequestFinished.AddUObject(this, &UBTTask_ZombieRoam::OnMoveCompleted);
+		}
+
+		// 5. 찾은 위치로 이동 명령 (AI Move To)
+		ZombieAIController->MoveToLocation(NextLocation.Location);
+
+		// 6. 아직 끝나지 않았음을 반환
+		return EBTNodeResult::InProgress;
+	}
+	
+	return EBTNodeResult::Failed;
+}
+
+void UBTTask_ZombieRoam::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)
+{
+	if (MyOwnerComp)
+	{
+		// 4. 델리게이트 연결 해제 (중요: 메모리 누수 및 중복 실행 방지)
+		AZombieAIController* ZombieAIController = Cast<AZombieAIController>(MyOwnerComp->GetAIOwner());
+		if (ZombieAIController && ZombieAIController->GetPathFollowingComponent())
+		{
+			ZombieAIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+		}
+
+		// 5. 비헤이비어 트리에 이 태스크가 성공적으로 끝났음을 알림
+		FinishLatentTask(*MyOwnerComp, EBTNodeResult::Succeeded);
+	}
+}
+
+EBTNodeResult::Type UBTTask_ZombieRoam::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	// 태스크가 도중에 강제 중단될 경우 (예: 상위 우선순위 노드 실행) 이동을 멈춤
+	AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
+	if (ZombieAIController)
+	{
+		ZombieAIController->StopMovement();
+		if (ZombieAIController->GetPathFollowingComponent())
+		{
+			ZombieAIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+		}
+	}
+	return Super::AbortTask(OwnerComp, NodeMemory);
+}
+
+FString UBTTask_ZombieRoam::GetStaticDescription() const
+{
+	return TEXT("Zombie performs roam");
+}
+```
+
+<br/>
+
+**<위 코드에서 나온 또 하나의 문제점>**   
+
+액터를 여러개 배치했을때 시작하면 다같이 움직이지만 그 후로는 하나의 액터만 움직인다..!   
+
+문제점을 찾아보니 세마리가 하나의 자원을 공유하다 보니 처음에는 동시에 움직였다가 그 후론 한놈만 해당 자원을 활용해서 움직이는거였다.   
+
+바로 `MyOwnerComp` 요놈을 다른 객체들도 똑같이 사용하고 있었던것.   
+`MyOwnerComp`를 담을 변수나 구조체를 생성하고 거기로 관리를 해줘야한다.   
+
+```cpp
+// .h 파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "BTTask_ZombieRoam.generated.h"
+
+// Task 실행 시 각 인스턴스마다 별도로 저장할 데이터 구조체
+struct FZombieRoamTaskMemory
+{
+	// 약한 참조를 사용하여 메모리 안전성을 높입니다.
+	TWeakObjectPtr<UBehaviorTreeComponent> OwnerComp;
+};
+
+UCLASS()
+class MONSTER_AI_PROJECT_API UBTTask_ZombieRoam : public UBTTaskNode
+{
+	GENERATED_BODY()
+
+public:
+	UBTTask_ZombieRoam();
+
+	// 태스크가 실행될 때 호출되는 핵심 함수
+	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+protected:
+	// 태스크 중단 시 처리
+	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+	// 인스턴스별 메모리 크기를 반환하여 엔진이 할당하게 함
+	virtual uint16 GetInstanceMemorySize() const override { return sizeof(FZombieRoamTaskMemory); }
+
+	// 이동 완료 콜백
+	void OnMoveCompleted(struct FAIRequestID RequestID, const struct FPathFollowingResult& Result, UBehaviorTreeComponent* OwnerComp);
+
+	// 노드 이름을 에디터에서 식별하기 좋게 설정
+	virtual FString GetStaticDescription() const override;
+
+	// 에디터에서 조절 가능한 탐색 범위 변수
+	UPROPERTY(EditAnywhere, Category = "AI")
+	float SearchRadius = 1000.0f;
+
+	// 주의: 클래스 멤버 변수(예: MyOwnerComp)를 상태 저장용으로 사용하지 않습니다.
+};
+
+// .cpp 파일
+#include "BTTask_ZombieRoam.h"
+#include "Zombie.h"
+#include "ZombieAIController.h"
+#include "NavigationSystem.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+
+UBTTask_ZombieRoam::UBTTask_ZombieRoam()
+{
+	NodeName = TEXT("Zombie Roam");
+	bNotifyTick = false;
+	// 멤버 변수인 MyOwnerComp를 초기화하던 로직을 제거합니다.
+}
+
+EBTNodeResult::Type UBTTask_ZombieRoam::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
+	if (!ZombieAIController) return EBTNodeResult::Failed;
+
+	AZombie* Zombie = Cast<AZombie>(ZombieAIController->GetPawn());
+	if (!Zombie) return EBTNodeResult::Failed;
+
+	UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (!NavSystem) return EBTNodeResult::Failed;
+
+	// 1. 노드 전용 메모리에 현재 OwnerComp 저장 (구조체 활용)
+	FZombieRoamTaskMemory* MyMemory = reinterpret_cast<FZombieRoamTaskMemory*>(NodeMemory);
+	MyMemory->OwnerComp = &OwnerComp;
+
+	FVector Origin = Zombie->GetActorLocation();
+	FNavLocation NextLocation;
+
+	if (NavSystem->GetRandomReachablePointInRadius(Origin, SearchRadius, NextLocation))
+	{
+		UPathFollowingComponent* PFollowComp = ZombieAIController->GetPathFollowingComponent();
+		if (PFollowComp)
+		{
+			// 2. 델리게이트에 람다를 사용하여 현재 실행 중인 OwnerComp를 안전하게 전달
+			// 캡처 리스트에 &OwnerComp를 사용하지 않고 포인터로 전달하여 안전성을 높임
+			UBehaviorTreeComponent* OwnerCompPtr = &OwnerComp;
+			PFollowComp->OnRequestFinished.AddLambda([this, OwnerCompPtr](FAIRequestID ReqID, const FPathFollowingResult& Res)
+				{
+					this->OnMoveCompleted(ReqID, Res, OwnerCompPtr);
+				});
+		}
+
+		ZombieAIController->MoveToLocation(NextLocation.Location);
+		return EBTNodeResult::InProgress;
+	}
+
+	return EBTNodeResult::Failed;
+}
+
+void UBTTask_ZombieRoam::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result, UBehaviorTreeComponent* OwnerComp)
+{
+	if (OwnerComp)
+	{
+		AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp->GetAIOwner());
+		if (ZombieAIController && ZombieAIController->GetPathFollowingComponent())
+		{
+			// 작업 완료 후 해당 인스턴스의 델리게이트 제거
+			ZombieAIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+		}
+
+		// 해당 OwnerComp에 대해 성공 보고
+		FinishLatentTask(*OwnerComp, EBTNodeResult::Succeeded);
+	}
+}
+
+EBTNodeResult::Type UBTTask_ZombieRoam::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AZombieAIController* ZombieAIController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
+	if (ZombieAIController)
+	{
+		ZombieAIController->StopMovement();
+		if (ZombieAIController->GetPathFollowingComponent())
+		{
+			ZombieAIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+		}
+	}
+	return Super::AbortTask(OwnerComp, NodeMemory);
+}
+
+FString UBTTask_ZombieRoam::GetStaticDescription() const
+{
+	return FString::Printf(TEXT("Zombie performs roam within %.1f radius (Multi-AI Safe)"), SearchRadius);
+}
+```
+
+<br/>
+
+**1.AbortTask()**   
+
+위에서 `EBTNodeResult::Type UBTTask_ZombieRoam::AbortTask` 함수는 분명 `EBTNodeResult::Type`을 반환하는데 왜 부모 함수를 불러서 리턴하는지 궁금했다.   
+
+ `AbortTask`함수를 호출하면 부모인 `UBTTaskNode`는 내부 상태를 변경하는 시스템적인 처리를 수행한다고 한다.   
+즉, 그냥 함수를 실행만 하는게 아니라 엔진이 기대하는 최종 상태 값을 반환하기 때문에 이를 관리하는 부모 함수를 호출해서 결과값을 리턴해준다고 한다.   
+
+**2.메모리 리턴 함수**   
+
+```cpp
+virtual uint16 GetInstanceMemorySize() const override { return sizeof(FZombieRoamTaskMemory); }
+```
+이 함수는 호출을 하지않아서 어떤 구조로 작동하는지 궁금해서 찾아봤다.   
+
+`Behavior Tree 시스템`이 작동할때 알아서 호출을 한다고 한다. 그리고 여기서 받아낸 메모리 값이 바로 `ExecuteTask()`나 `AbortTask()`의 매개변수에 있는 `NodeMemory` 값이라고 한다.   
+
+**3.OwnerComp를 TArray로 쓰면 안될까?**   
+
+사실상 엔진 자체가 메모리를 활용한 구조체 방식을 강제한다고 한다.   
+배열을 쓰면 이동 로직이 끝날 때 마다 인덱스 값을 찾아야하고 좀비를 Destroy할 때도 일일이 지워줘야 해서 매우 비효율적이다.   
+
+구조체가 확장성도 훨씬 좋고 `NodeMemory`와 연동하고 `TWeakObjectPtr`를 사용하기 때문에 안전한 메모리 관리와 즉각적인 접근이 가능하다.   
+
+**4.현재 구현 방식의 문제점**   
+
+쭉 수정해온 코드들은 매번 델리게이트 바인딩과 해제를 해야하는데 수많은 좀비가 생기면 성능 저하가 온다.   
+
+따라서, 초반에 구현했던 단순한 이동만 코드로 구현을 하고(단순 Succeeded 반환) 그 이후의 상태 체크는 `Service`/`Decorator`가 하도록 해야한다.    
+-> `Decorator` 조건문의 역할   
+-> `Service` Tick함수의 역할   
+위 코드에서 `Decorator`로 좀비가 목표 지점에 도착했는지를 확인하고 추가로 플레이어를 추적한다고 하면 `Service`로 플레이어와의 거리를 설정한 주기마다 체크하는 식으로 사용.   
 
 
   </p>

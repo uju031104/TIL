@@ -44,7 +44,7 @@
     <tr> <td>volatile            </td> <td>휘발성 물질</td> </tr>
     <tr> <td>qualifier           </td> <td>한정, 제한</td> </tr>
     <tr> <td>reinterpret         </td> <td>재해석하다</td> </tr>
-    <tr> <td>            </td> <td></td> </tr>
+    <tr> <td>roam                </td> <td>배회하다</td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>
     <tr> <td>            </td> <td></td> </tr>
