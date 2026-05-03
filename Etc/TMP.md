@@ -5063,3 +5063,86 @@ virtual uint16 GetInstanceMemorySize() const override { return sizeof(FZombieRoa
 
   </p>
 </details>
+
+#### <!-- 26.05.03 -->
+<details> 
+  <summary>26.05.03</summary>
+  <p>
+
+**<Mixamo에서 받은 애니메이션을 UE5로 옮기는 방법>**    
+
+온 갖 뻘짓(컨버터 써보기, 스켈레탈 직접 수정 등등)을 해봤는데 다 실패하다가 3분짜리 영상에서 드디어 방법을 찾았음.   
+
+Import를 하고나서 Retarget Animations를 누르고 언리얼 엔진의 뼈대로 자동으로 바꾸는 기능을 사용하면 너무 편리함.   
+
+<br/>
+
+**<좀비 AI가 먹통>**   
+
+프로젝트 새로 만들고 계속 비교해봤는데 아무리 찾아봐도 틀린점이 없었는데 알고보니 커스텀 `AIController`의 `OnPossess` 함수에서 부모를 안불러와서 그랬음(Super::)   
+이거때매 3시간 날림   
+
+<br/>
+
+**<좀비의 yaw 회전이 너무 부자연스러운 현상>**   
+
+좀비가 플레이어를 추적하다 보니 수시로 움직이는데 엄청 부자연스러움   
+
++좀비끼리 너무 부비부비 해댐   
+  
+이걸 다 해결해준 코드가 있음   
+```cpp
+UCharacterMovementComponent* MoveComp = GetCharacterMovement();
+if (MoveComp)
+{
+	MoveComp->MaxWalkSpeed = 50.f;
+
+	// 회전 속도 (Yaw) 조절 - 뚝뚝 끊기는 현상 방지
+	MoveComp->RotationRate = FRotator(0.0f, 180.0f, 0.0f); // 수치가 낮을수록 회전이 부드러워짐
+
+	// 이동 방향으로 자동 회전 설정
+	MoveComp->bOrientRotationToMovement = true;
+
+	// 컨트롤러 회전 사용 안 함 (캐릭터가 휙 돌아가는 것 방지)
+	bUseControllerRotationYaw = false;
+
+	// 군중 회피(RVO Avoidance) 활성화 - 좀비끼리 겹치는 현상 방지
+	MoveComp->bUseRVOAvoidance = true;
+	// 1.0은 이동에만 신경쓰고
+	// 0.0은 회피에만 신경쓰고
+	// 0.5은 딱 밸런스
+	// 좀비끼리 잘 엉켜서 0.3으로 세팅
+	MoveComp->AvoidanceWeight = 0.3f;
+}
+```
+
+<br/>
+
+**<좀비 애니메이션 끊기는 문제>**   
+
+mixamo에서 받을 때 InPlace를 체크하지 않아서 생긴 문제였음.   
+
+<br/>
+
+**<AI Perception(감지) 설정>**   
+
+내 좀비 블루프린트 클래스에는 AI Perception이 없어서 추가를 해줬다.   
+
+```cpp
+// .h
+// AIPerception 컴포넌트 선언
+UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+class UAIPerceptionComponent* PerceptionComp;
+
+// .cpp
+PerceptionComp = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("PerceptionComponent"));
+```
+
+여기서 Senses Config 항목으로 시야 상실 후 유지시간을 설정할 수 있다.   
+근데 현재 프로젝트와는 맞지 않아서 이런 기능이 있다는거만 체크하고 넘어감.   
+
+
+
+
+  </p>
+</details>
