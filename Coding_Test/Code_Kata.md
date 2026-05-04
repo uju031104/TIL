@@ -596,3 +596,91 @@ int solution(vector<int> priorities, int location) {
     return answer;
 }
 ```
+
+### 피로도 (93번)   
+
+완전 탐색 문제인데 처음 접해봐서 접근 방법을 찾아봤다.   
+순열을 이용한 완전 탐색과 DPS와 백트래킹을 이용한 방법이 있었다.   
+
+<algorithm>에 포함된 `next_permutation`이라는 함수가 있는데 얘가 순열을 알아서 뽑아내준다.(단, 컨테이너가 오름차순 정렬이 되어있어야함)   
+
+조합을 뽑을 때는 `prev_permutation`을 사용하면 된다.   
+```cpp
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int solution(int k, vector<vector<int>> dungeons) {
+    int max_dungeons = 0;
+    
+    // 순열을 사용하기 위해 인덱스 배열 생성 (0, 1, 2, ... N-1)
+    vector<int> indices(dungeons.size());
+    for (int i = 0; i < dungeons.size(); i++) {
+        indices[i] = i;
+    }
+    
+    // 가능한 모든 순서에 대해 반복
+    // (std::next_permutation은 오름차순 정렬된 배열에서 시작해야 모든 순열을 탐색합니다.)
+    sort(indices.begin(), indices.end());
+    
+    do {
+        int current_k = k;
+        int cnt = 0;
+        
+        for (int i = 0; i < indices.size(); i++) {
+            int idx = indices[i];
+            // 최소 필요 피로도 확인
+            if (current_k >= dungeons[idx][0]) {
+                current_k -= dungeons[idx][1]; // 소모 피로도 차감
+                cnt++;
+            } else {
+                break; // 피로도가 부족하면 탐험 중단
+            }
+        }
+        
+        // 최대 방문 던전 수 갱신
+        max_dungeons = max(max_dungeons, cnt);
+        
+    } while (next_permutation(indices.begin(), indices.end()));
+    
+    return max_dungeons;
+}
+```
+
+<br/>
+
+**DFS를 사용한 풀이**   
+```cpp
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int max_d = 0;
+vector<bool> visited;
+
+void dfs(int k, int cnt, const vector<vector<int>>& dungeons) {
+    max_d = max(max_d, cnt);
+    
+    for (int i = 0; i < dungeons.size(); i++) {
+        // 방문하지 않았고, 최소 필요 피로도 조건을 만족할 때
+        if (!visited[i] && k >= dungeons[i][0]) {
+            visited[i] = true;
+            dfs(k - dungeons[i][1], cnt + 1, dungeons);
+            visited[i] = false; // 백트래킹 (원상복구)
+        }
+    }
+}
+
+int solution_dfs(int k, vector<vector<int>> dungeons) {
+    max_d = 0;
+    visited.assign(dungeons.size(), false);
+    
+    dfs(k, 0, dungeons);
+    
+    return max_d;
+}
+```

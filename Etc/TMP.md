@@ -5141,6 +5141,135 @@ PerceptionComp = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("Perception
 여기서 Senses Config 항목으로 시야 상실 후 유지시간을 설정할 수 있다.   
 근데 현재 프로젝트와는 맞지 않아서 이런 기능이 있다는거만 체크하고 넘어감.   
 
+  </p>
+</details>
+
+#### <!-- 26.05.04 -->
+<details> 
+  <summary>26.05.04</summary>
+  <p>
+
+**<코드카타 93번>**   
+
+완전 탐색 문제인데 처음 접해봐서 접근 방법을 찾아봤다.   
+순열을 이용한 완전 탐색과 DPS와 백트래킹을 이용한 방법이 있었다.   
+
+<algorithm>에 포함된 `next_permutation`이라는 함수가 있는데 얘가 순열을 알아서 뽑아내준다.(단, 컨테이너가 오름차순 정렬이 되어있어야함)   
+
+조합을 뽑을 때는 `prev_permutation`을 사용하면 된다.   
+```cpp
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int solution(int k, vector<vector<int>> dungeons) {
+    int max_dungeons = 0;
+    
+    // 순열을 사용하기 위해 인덱스 배열 생성 (0, 1, 2, ... N-1)
+    vector<int> indices(dungeons.size());
+    for (int i = 0; i < dungeons.size(); i++) {
+        indices[i] = i;
+    }
+    
+    // 가능한 모든 순서에 대해 반복
+    // (std::next_permutation은 오름차순 정렬된 배열에서 시작해야 모든 순열을 탐색합니다.)
+    sort(indices.begin(), indices.end());
+    
+    do {
+        int current_k = k;
+        int cnt = 0;
+        
+        for (int i = 0; i < indices.size(); i++) {
+            int idx = indices[i];
+            // 최소 필요 피로도 확인
+            if (current_k >= dungeons[idx][0]) {
+                current_k -= dungeons[idx][1]; // 소모 피로도 차감
+                cnt++;
+            } else {
+                break; // 피로도가 부족하면 탐험 중단
+            }
+        }
+        
+        // 최대 방문 던전 수 갱신
+        max_dungeons = max(max_dungeons, cnt);
+        
+    } while (next_permutation(indices.begin(), indices.end()));
+    
+    return max_dungeons;
+}
+```
+
+<br/>
+
+**DFS를 사용한 풀이**   
+```cpp
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int max_d = 0;
+vector<bool> visited;
+
+void dfs(int k, int cnt, const vector<vector<int>>& dungeons) {
+    max_d = max(max_d, cnt);
+    
+    for (int i = 0; i < dungeons.size(); i++) {
+        // 방문하지 않았고, 최소 필요 피로도 조건을 만족할 때
+        if (!visited[i] && k >= dungeons[i][0]) {
+            visited[i] = true;
+            dfs(k - dungeons[i][1], cnt + 1, dungeons);
+            visited[i] = false; // 백트래킹 (원상복구)
+        }
+    }
+}
+
+int solution_dfs(int k, vector<vector<int>> dungeons) {
+    max_d = 0;
+    visited.assign(dungeons.size(), false);
+    
+    dfs(k, 0, dungeons);
+    
+    return max_d;
+}
+```
+
+**<BlackBoard 변수 사용하기>**   
+
+구하려는 값이 플레이어와 좀비의 거리라서 `AI Controller`의 Tick()함수에 추가를 해준다.   
+
+```cpp
+void AZombieAIController::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+	ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	if (PlayerCharacter != nullptr)
+	{
+		FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+
+		// 좀비와 플레이어 사이의 거리 계산
+		AZombie* CurrentZombie = Cast<AZombie>(GetPawn());
+		if (CurrentZombie != nullptr)
+		{
+			float Distance = FVector::Dist(CurrentZombie->GetActorLocation(), PlayerLocation);
+
+			// 블랙보드에 거리 값 저장
+			Blackboard->SetValueAsFloat(TEXT("DistanceToPlayer"), Distance);
+		}
+	}
+}
+```
+
+<br/>
+
+**<애니메이션 몽타주가 실행이 안되는 현상>**   
+
+좀비가 플레이어한테 왔을 때 계속 멍때리길래 뭔가 했더니 애니메이션을 실행하는 함수는 실행하자마자 종료를 해버려서(속도가 너무 빠름) 그런거였음.   
+뒤에 `wait`를 달아주거나 `Attack Task`를 `InProgress` 상태로 유지하다가 실제 애니메이션이 끝나는 순간 `Succeeded`로 반환을 해줘야 한다.   
 
 
 
