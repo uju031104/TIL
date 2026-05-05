@@ -5271,7 +5271,115 @@ void AZombieAIController::Tick(float DeltaSeconds)
 좀비가 플레이어한테 왔을 때 계속 멍때리길래 뭔가 했더니 애니메이션을 실행하는 함수는 실행하자마자 종료를 해버려서(속도가 너무 빠름) 그런거였음.   
 뒤에 `wait`를 달아주거나 `Attack Task`를 `InProgress` 상태로 유지하다가 실제 애니메이션이 끝나는 순간 `Succeeded`로 반환을 해줘야 한다.   
 
+  </p>
+</details>
 
+#### <!-- 26.05.05 -->
+<details> 
+  <summary>26.05.05</summary>
+  <p>
+
+**<애니메이션이 끊겨 보이는 현상>**  
+
+<s>이거때문에 미치겠네 어케 하는거지 blend 조절하고 다 해봤는데 안되네;</s>    
+
+최대한 간단하게 ABP를 만들었는데 결국 세부적으로 다 나눠서 구현했다. 이러니까 아주 잘 된다...    
+
+간편하게 Idle과 Walk를 BlendSpace로 만들어서 연결했었는데 앞으로는 직접 statmachine을 만들어서 세부적으로 나누는게 제일 좋을 것 같다.   
+
+<br/>
+
+**<Damage 파이프라인>**   
+
+`TakeDamage`랑 `ApplyDamage`는 한쌍인데 서로 다른 곳에 들어가있다.   
+`TakeDamage`는 `AActor`에 들어가있는 메서드고 `ApplyDamage`는 `GameplayStatics`에 들어가있다.   
+
+<br/>
+
+**<내적 사용해서 공격범위안에 적이 있는지 확인하기>**   
+
+심화반 수업 도강한게 여기서 도움이 됐다.   
+
+바로 내적, cos이 떠올랐다.   
+
+```cpp
+// 직접 짠 만족스러운 코드(나중에 보면 아니겠지?)
+bool AZombieAIController::IsCanAttackSight()
+{
+	if (!PlayerCharacter || !Zombie)
+	{
+		return false;
+	}
+	// 좀비의 정면 단위 방향 벡터
+	FVector ZombieFowardDirection = Zombie->GetActorForwardVector();
+	ZombieFowardDirection.Z = 0.f;
+	ZombieFowardDirection.Normalize();
+	// 좀비 - 플레이어 단위 방향 벡터
+	FVector ZombieLocation = Zombie->GetActorLocation();
+	FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+	FVector ZombieToPlayerDirection = PlayerLocation - ZombieLocation;
+	ZombieToPlayerDirection.Z = 0.f;
+	ZombieToPlayerDirection.Normalize();
+
+	float DotValue = FVector::DotProduct(ZombieFowardDirection, ZombieToPlayerDirection);
+	// 위와 같은 기능
+	// float DotValue = ZombieFowardDirection | ZombieToPlayerDirection; 
+	
+	return DotValue >= 0.866f;
+}
+```
+
+<br/>
+
+**<공격 애니메이션이 실행되는 동안 플레이어의 위치를 향해 회전하는 현상>**   
+
+플레이어가 공격유무값을 저장할 부울 변수를 만들어서 공격하는 도중엔(true) 회전을 못하게 막고 공격 이후 공격유무값을 false로 지정하게 만들어줬다.   
+Timer를 만들어서 해결했다.   
+
+지연값은 몽타주 실행 시간(공격 애니메이션 실행 시간)동안으로 정해줬다.   
+몽타주 실행 시간은 커스텀 Task에서 몽타주를 실행하는데 그 때 ZombieAIController에 새로 만든 MontageTime 변수에 저장을 따로 해주고 아래의 함수가 실행될 때 사용했다.   ㄹ
+```cpp
+bool AZombieAIController::IsCanAttackSight()
+{
+	if (!PlayerCharacter || !Zombie)
+	{
+		return false;
+	}
+
+	// 좀비의 정면 단위 방향 벡터
+	FVector ZombieFowardDirection = Zombie->GetActorForwardVector();
+	ZombieFowardDirection.Z = 0.f;
+	ZombieFowardDirection.Normalize();
+	// 좀비 - 플레이어 단위 방향 벡터
+	FVector ZombieLocation = Zombie->GetActorLocation();
+	FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+	FVector ZombieToPlayerDirection = PlayerLocation - ZombieLocation;
+	ZombieToPlayerDirection.Z = 0.f;
+	ZombieToPlayerDirection.Normalize();
+
+	float DotValue = FVector::DotProduct(ZombieFowardDirection, ZombieToPlayerDirection);
+	// 위와 같은 기능
+	// float DotValue = ZombieFowardDirection | ZombieToPlayerDirection; 
+	
+	// 시야안에 들어왔으면 공격중으로 상태를 바꾸고(bIsAttaking) 애니메이션 재생 시간 뒤에 공격이 끝났다고 바꿔줌
+	if (DotValue >= 0.999f)
+	{
+		bIsAttaking = true;
+		UE_LOG(LogTemp, Warning, TEXT("%f"), MontageTime);
+		GetWorldTimerManager().SetTimer(
+			AttackTimer,
+			[this]() 
+			{
+				bIsAttaking = false;
+			},	
+			MontageTime,
+			false
+			);
+		return true;
+	}
+	return false;
+}
+```
 
   </p>
 </details>
