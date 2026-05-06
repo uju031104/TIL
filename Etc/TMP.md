@@ -5383,3 +5383,65 @@ bool AZombieAIController::IsCanAttackSight()
 
   </p>
 </details>
+
+#### <!-- 26.05.06 -->
+<details> 
+  <summary>26.05.06</summary>
+  <p>
+
+**<코드카타 94번>**   
+
+깊이 우선 탐색을 사용하는 문제다.   
+재귀함수를 사용하는데 +, - 두가지 선택지가 있어서 다음단계로 넘어가는 재귀함수가 2개.   
+깊이(배열의 인덱스)가 배열의 길이와 같으면 탐색이 끝난다.(탈출 조건 달성)   
+-> 깊이가 n일 때 n - 1 인덱스의 배열 값을 합계에 더해주기 때문에 깊이가 1 더 크다.   
+
+```cpp
+#include <string>
+#include <vector>
+
+using namespace std;
+
+void DFS(int Depth, int Sum, const vector<int>& numbers, const int& target, int& answer)
+{
+    if(Depth == numbers.size())
+    {
+        if(Sum == target)
+        {
+            ++answer;     
+        }
+        return;
+    }
+    DFS(Depth + 1, Sum + numbers[Depth], numbers, target, answer);
+    DFS(Depth + 1, Sum - numbers[Depth], numbers, target, answer);
+}
+
+int solution(vector<int> numbers, int target) {
+    int answer = 0;
+    
+    DFS(0, 0, numbers, target, answer);
+    
+    return answer;
+}
+```
+
+<br/>
+
+**<블루프린트 AI Move To 사용했을때 문제점>**   
+
+플레이어가 대각선으로 좀비에게 접근하면 좀비가 플레이어를 놓치고(정확히는 내적값은 true 처리가 되고 거리값은 false가 되는 기이한 현상) 약 2~ 3초 멍때리다가 다시 Chase 하는 문제가 생겼다.   
+BT도 수정하고 이것저것 건드려봤지만 해결되지 않아서 결국 해당 Task를 C++코드로 만들어서 간단하게 `MoveToActor`를 사용했는데 이 현상이 해결됐다. 분명 같은 원리긴한데 내부 지연의 차이가 조금 있다던데 앞으로 그냥 C++로 써야겠다.   
+
+<br/>
+
+**<MoveToActor를 사용했을때 Radius 계산>**   
+
+AIMoveTo를 사용했을땐 범위를 150으로 설정하면 정확히 Distance가 150이 됐을 때 동작을 했는데 C++에서는 조금 달랐다.   
+좀비의 캡슐 컴포넌트의 반지름 값과 플레이어의 반지름 값도 생각을 해야한다.   
+예를 들어 Radius를 150으로 설정했다면 실제로 둘 사이의 값 150에 두명의 반지름 값을 더한 70정도가 더해져서 220정도의 거리에서 Chase를 멈추지만 멈추지않는(?) 이상한 현상이 발생했다.   
+아마 Velocity는 살아있어서 움직이는 애니메이션은 계속 실행되지만 더이상 플레이어한테 다가가지 못해서 가만히 러닝머신을 타는 현상이 나타난듯하다.   
+
+그래서 `AcceptanceRadius = 70.f`정도로 해주니 공격 범위의 150에 근접해서 애니메이션이 아주 자연스럽게 잘 나오게 됐다.   
+
+  </p>
+</details>
