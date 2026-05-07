@@ -684,3 +684,70 @@ int solution_dfs(int k, vector<vector<int>> dungeons) {
     return max_d;
 }
 ```
+
+
+### k진수에서 소수 개수 구하기 (95번)  
+
+`reverse(str.begin(), str.end())`를 생각하지 못했다. 스택으로 넣고 다시 문자열로 넣으려고 했는데 `reverse`를 쓴 방식이 간결하다.   
+
+
+```cpp
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+
+using namespace std;
+
+bool bIsPrime(long long n)
+{
+    if (n < 2) 
+    {
+        return false;
+    }
+    for (long long i = 2; i <= sqrt(n); i++) 
+    {
+        if (n % i == 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+int solution(int n, int k) {
+    int answer = 0;
+    string str = "";
+    string sum = "";
+    
+    while(n > 0)
+    {
+        str += to_string(n % k);
+        n /= k;
+    }
+    reverse(str.begin(), str.end());
+    
+    for(char c : str)
+    {
+        if(c == '0')
+        {
+            if(!sum.empty() && bIsPrime(stoll(sum)))
+            {
+                ++answer;
+            }
+            sum = "";
+        }
+        else
+        {
+            sum += c;
+        }
+    }
+    
+    if(!sum.empty() && bIsPrime(stoll(sum)))
+    {
+        ++answer;
+    }
+    
+    return answer;
+}
+```
