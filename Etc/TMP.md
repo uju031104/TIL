@@ -5579,6 +5579,270 @@ void ATemplateWeapon_Shotgun::StartTrace()
 
 알고보니 True 상태에서 BP를 만들어놨는데 코드에서 수정을 해도 BP의 Tick 옵션이 켜져있는거였다.   
 
+  </p>
+</details>
+
+#### <!-- 26.05.08 -->
+<details> 
+  <summary>26.05.08</summary>
+  <p>
+
+**<코드카타 96번>**   
+
+풀고나서 실행했는데 틀려서 봤더니 하루치 주차시간을 다 더하고 요금을 계산하는거였다.   
+문제를 잘 읽자...   
+근데 저렇게 계산하는 곳이 어딨음;   
+
+<br/>
+
+**<Interface 사용법>**  
+
+기본적으로 순수 가상 함수를 만들고 인터페이스를 상속시켜서 사용한다.   
+
+하지만 블루프린트가 엮이면 달라진다.   
+
+```cpp
+// 인터페이스 클래스
+// 헤더파일만 작성
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Interface.h"
+#include "TestMyInterface.generated.h"
+
+UINTERFACE(MinimalAPI)
+class UTestMyInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class MYPROJECT_API ITestMyInterface
+{
+	GENERATED_BODY()
+
+public:
+	// 이러면 블루프린트에서 못씀
+	//virtual void OnFireDetected(float Temperature, FVector HitLocation) = 0;
+
+	// 블루프린트는 virtual을 쓰지 못해서 이렇게 리플렉션에 등록해준다.
+	// C++ 처럼 구현하지 않아도 된다.
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interface")
+	void OnFireDetected(float Temperature, FVector HitLocation);
+};
+```
+
+<br/>
+
+```cpp
+// 인터페이스의 함수를 사용하는 클래스에 상속한다.
+// 헤더파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "ItemBase.h"
+#include "TestMyInterface.h"
+#include "ItemCloth.generated.h"
+
+UCLASS()
+class MYPROJECT_API AItemCloth : public AItemBase, public ITestMyInterface
+{
+	GENERATED_BODY()
+	
+public:
+	// C++ 방식
+	//virtual void OnFireDetected(float Temperature, FVector HitLocation) override;
+	// 블루프린트 방식
+	// _Implementation을 붙여줘야함
+	virtual void OnFireDetected_Implementation(float Temperature, FVector HitLocation) override;
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	TObjectPtr<class UParticleSystem> FireEffect;
+};
+
+// C++ 파일
+#include "ItemCloth.h"
+#include "Kismet/GameplayStatics.h"
+#include "Particles/ParticleSystem.h"
+
+void AItemCloth::OnFireDetected_Implementation(float Temperature, FVector HitLocation)
+{
+	if (FireEffect)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
+			FireEffect,
+			GetActorLocation(),
+			GetActorRotation(),
+			FVector(1.f)
+		);
+	}
+}
+```
+
+<br/>
+
+```cpp
+// C++과 블루프린트에서 사용하는 방법들
+for (const TWeakObjectPtr<AActor>& Item : Items)
+{
+	// 이렇게 작성하면 C++에서만 사용가능하다. 블루프린트는 다중상속을 지원안함
+	// 약한 참조라서 Get()을 사용 가능
+	/*ITestMyInterface* MyInterface = Cast<ITestMyInterface>(Item.Get());
+
+	if (MyInterface)
+	{
+		MyInterface->OnFireDetected(100.f, FVector::ZeroVector);
+	}*/
+
+	// 블루프린트로 사용하려고 리플렉션에 등록된 클래스를 확인하는 과정이라서 UTestMyInterface로 가져온다.
+	// UTestMyInterface 클래스에 인터페이스가 있는지 체크
+	if (UKismetSystemLibrary::DoesImplementInterface(Item.Get(), UTestMyInterface::StaticClass()))
+	{
+		// 메서드 앞에 Execute_ 를 붙여줘야한다.
+		ITestMyInterface::Execute_OnFireDetected(Item.Get(), 100.f, FVector::ZeroVector);
+	}
+}
+```
+
+<br/>
+
+**<delegate 사용해보기>**   
+
+기본 델리게이트 문법   
+
+```cpp
+// *** DELEGATE 선언 ***
+
+// C++ 형태로 1대1만 지원
+// DECLARE_DELEGATE
+
+// C++ 1대 다수
+// DECLARE_MULTICAST_DELEGATE
+
+// 1대1 형태로 블루프린트까지
+// DECLARE_DYNAMIC_DELEGATE
+
+// 1대 다수로 블루프린트까지
+// DECLARE_DYNAMIC_MULTICAST_DELEGATE
+
+// 바인드 되기 전까지 1바이트도 차지하지 않는다, 하지만 사용시 느려짐 -> 거의 바인딩 되지 않으면 효율적
+// 아아아아주 가끔 쓰임
+// DECLARE_SPARSE_DELEGATE
+
+
+// *** 반환값, 매개변수 추가 ***
+
+// 반환값이 하나고 매개변수가 없다면
+// DECLARE_DELEGATE_OneParam
+
+// 반환값이 3개고 매개변수가 있다면
+// DECLARE_DELEGATE_RetVal_ThreeParams
+
+// (주의!) MULTICAST는 반환값을 지원하지 않는다.
+
+// ------------------------------------------------------------ //
+
+// *** 바인딩 ***
+// 기다리겠다는 뜻. 호출되면 함수 실행시켜줘!
+
+// C++ 전용 바인딩, 함수 포인터를 참조해서 매우 빠름
+// AddUObject, BindUObject
+
+// 블루프린트까지, 리플렉션 시스템을 이용해서 함수 이름을 찾기 때문에 조금 더 오래걸림
+// AddDynamic, BindDynamic
+
+// 싱글 -> Bind로 시작
+// 멀티(1대 다수) -> Add로 시작
+
+
+
+// *** 바인딩하는 기본 양식 ***
+// 오브젝트, 스마트포인터(SharedPtr, ...), Lamda, Static, UFUNCTION
+
+
+// 오브젝트
+// 델리게이트.BindUObject(객체, &UMyObject::함수);
+
+// 스마트포인터
+// 델리게이트.BindSP(객체, &UMyObject::함수);
+
+// 람다
+// 델리게이트.BindLamda([](){});
+
+// 스태틱
+// 델리게이트.BindStatic(객체, &UMyObject::함수);
+
+// UFUNCTION
+// 델리게이트.BindUFunction(객체, TEXT("함수이름"));
+
+
+// 블루프린트와 연동하는 다이나믹 -> 연동되는 함수는 무조건 UFUNCTION() 붙여줘야한다.
+
+
+
+// ------------------------------------------------------------ //
+
+// *** 델리게이트 실행 ***
+// 싱글
+// Execute();
+
+// 멀티(1대 다수)
+// Broadcast();
+
+// 싱글은 바인딩 안되면 크래시가 난다.
+// 그래서 IsBound로 검사를 꼭 해줘야한다.
+// MySingleDelegate.IsBound()
+
+// 블루프린트로 받아올경우
+// 이쪽에서 객체로 만들고 그 객체를 통해서 블루프린트 델리게이트를 만들어줌
+// UPROPERTY(BlueprintAssignable)
+// 이렇게 해야 블루프린트에서 쓸 수 있다.
+```
+
+<br/>
+
+```cpp
+// 델리게이트 정의
+// 1대 다수로 블루프린트까지 지원하는 델리게이트(죽었을때)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealthDeadSignature, AController*, Instigator);
+// 1대 다수로 블루프린트까지 지원하는 델리게이트(데미지 입었을때)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthDamagedSignature, float, NewHealth, float, MaxHealth, float, HealthChange);
+
+// 클래스 내부에 이런식으로 정의해준다.
+UPROPERTY(BlueprintAssignable)
+FHealthDeadSignature OnHealthDead;
+UPROPERTY(BlueprintAssignable)
+FHealthDamagedSignature OnHealthDamaged;
+```
+
+<br/>
+
+```cpp
+// 다른 클래스에서 HealthManager의 델리게이트를 사용하여 아이템 파괴와 연동 
+void AItemBase::BeginPlay()
+{
+	Super::BeginPlay();
+	ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	if (Player)
+	{
+		UHealthManager* Manager = Player->FindComponentByClass<UHealthManager>();
+		if (Manager)
+		{
+			Manager->OnHealthDead.AddDynamic(this, &AItemBase::ItemDestroy);
+		}
+		else
+		{
+			// fail
+		}
+	}
+}
+
+void AItemBase::ItemDestroy(AController* InstigatorController)
+{
+	Destroy();
+}
+```
 
 
   </p>
