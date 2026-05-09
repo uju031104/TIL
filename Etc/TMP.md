@@ -5844,6 +5844,75 @@ void AItemBase::ItemDestroy(AController* InstigatorController)
 }
 ```
 
+  </p>
+</details>
+
+#### <!-- 26.05.09 -->
+<details> 
+  <summary>26.05.09</summary>
+  <p>
+
+**<좀비가 스폰이 안되는 현상>**   
+
+**1. 발생한 현상**   
+에디터에서 끌어서 배치를 하면 정상적으로 되는데 스폰 볼륨에서 좀비를 스폰하면 애가 움직이지 못하고 Idle 상태로 가만히 있는다.   
+
+
+**2. 원인**   
+먼저, `BT`를 확인해보니 돌아가는게 보이는데 `Distance`가 측정이 안되고 있다.   
+`AIController`에서 여기저기 로그를 집어넣어 봤더니 원인이 나왔다. AIController가 `ZombieCharacter`에 `Possess`가 안된건지 로직 순서가 꼬인건지 정확히는 모르겠지만 `GetPawn()`을 해서 ZombieCharacter를 불러오지 못한다.   
+```cpp
+// 여기 로그가 출력된다.
+if (!ZombieCharacter)
+{
+	UE_LOG(LogTemp, Warning, TEXT("No ZombieCharacter"));
+	return;
+}
+```
+
+`BeginPlay()`에서 `Player`와 `Zombie`를 가져오고 있었는데 좀비가 스폰되는 순서와 `OnPossess()`가 실행되는 순서가 안맞아서 발생하는 현상이었다.   
+
+**3. 해결 방법**   
+`OnPossess()`보다 `BeginPlay()`가 먼저 실행 될 수 있기 때문에 `OnPossess()`에서 `GetPawn()`으로 `ZombieCharacter`를 초기화해주면 해결된다.   
+
+<br/>
+
+**<스폰된 좀비가 MoveTo를 실행하지 못하는 현상>**   
+
+**1. 발생한 현상**
+BT를 보면 `MoveTo`를 실행하고 있지만 실제로 좀비가 움직이지 않는다. 다가가면 공격 Task는 실행한다. `NavMesh` 문제 같기도 한데 분명 깔아놓았고 혹시 몰라서 좀비 스폰도 시작하고 1초뒤에 하게 했는데도 이런 현상이 발생한다.   
+
+**2. 원인**   
+`MoveTo`가 있는 Task에서 `Blackboard`의 `TargetActor`를 불러오는데 값이 비어있다.   
+찾아보니 `BeginPlay()`에서 값을 넣어주는게 문제였다. `Spawn`을 시키면 `BeginPlay()`가 먼저 실행되기 때문에 아직 `BehaviorTree`가 `Controller`에 연결이 안된 상태에서 `BlackBoard` 값을 넣어주는게 됐다.   
+
+**3. 해결 방법**   
+`OnPossess()`에서 BT를 연결 한 이후에 BB에 값을 넣어주면 된다!   
+
+```cpp
+void AZombieAIController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	// Possess할 때 
+	ZombieCharacter = Cast<AZombieCharacter>(GetPawn());
+	
+	// BP 자식 클래스에서 에셋을 할당했는지 확인 후 실행
+	if (BTAsset)
+	{
+		// UseBlackboard는 내부적으로 Blackboard 데이터 에셋을 기반으로 초기화합니다.
+		if (BTAsset->BlackboardAsset)
+		{
+			Blackboard->InitializeBlackboard(*(BTAsset->BlackboardAsset));
+		}
+		RunBehaviorTree(BTAsset);
+	}
+
+	// BeginPlay()에 넣으면 좀비를 직접 배치할 땐 되지만 스폰할 땐 안된다.
+	// BTTask_MoveAndFaceTarget에서 쓸 BB 오브젝트 변수에 값 넣어줌
+	Blackboard->SetValueAsObject(BBKeys::TargetActor, PlayerCharacter);
+}
+```
 
   </p>
 </details>
