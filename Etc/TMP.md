@@ -5916,3 +5916,71 @@ void AZombieAIController::OnPossess(APawn* InPawn)
 
   </p>
 </details>
+
+#### <!-- 26.05.11 -->
+<details> 
+  <summary>26.05.11</summary>
+  <p>
+
+코드카타 97번   
+
+탐색 부분부터 확실히 어려워진다.   
+
+```cpp
+// 수학적 접근으로 푼 방법
+// 난이도 높음
+#include <string>
+#include <vector>
+#include <cmath>
+
+using namespace std;
+
+int solution(string word) {
+    int answer = word.length(); // 각 글자가 존재함에 따른 기본 순위 (+1씩)
+    int weight[] = {781, 156, 31, 6, 1}; // 각 자리수별 가중치
+    string vowels = "AEIOU";
+
+    for (int i = 0; i < word.length(); i++) {
+        for (int j = 0; j < 5; j++) {
+            if (word[i] == vowels[j]) {
+                answer += j * weight[i];
+                break;
+            }
+        }
+    }
+
+    return answer;
+}
+```
+
+```cpp
+// 재귀를 이용한 DFS
+// 난이도 보통
+#include <string>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+vector<string> dict;
+string vowels = "AEIOU";
+
+void dfs(string current) {
+    if (current.length() > 5) return;
+    if (current.length() > 0) dict.push_back(current);
+
+    for (int i = 0; i < 5; i++) {
+        dfs(current + vowels[i]);
+    }
+}
+
+int solution(string word) {
+    dfs("");
+    sort(dict.begin(), dict.end()); // 사전순 정렬
+    
+    // find를 사용하거나 인덱스를 직접 반환
+    return find(dict.begin(), dict.end(), word) - dict.begin() + 1;
+}
+```
+  </p>
+</details>
