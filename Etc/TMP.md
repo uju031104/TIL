@@ -5984,3 +5984,72 @@ int solution(string word) {
 ```
   </p>
 </details>
+
+#### <!-- 26.05.13 -->
+<details> 
+  <summary>26.05.13</summary>
+  <p>
+
+알고리즘 수업 코테문제(https://leetcode.com/problems/powx-n/)   
+
+단순한 문제지만 시간복잡도 때문에 생각을 해봐야함   
+
+```cpp
+class Solution {
+public:
+    double myPow(double x, int n) {
+        long long N = n;
+        if(n < 0)
+        {
+            x = 1 / x;
+            N = - N;
+        }
+        double value = x;
+        double result = 1.0;
+        while(N > 0)
+        {
+            if(N % 2 == 1)
+            {
+                result *= value;
+            }
+            N /= 2;
+            value *= value;
+        }
+        return result;
+    }
+};
+```
+
+<br/>
+
+**<다른 클래스의 함수 델리게이트에 Add하기>**   
+
+```cpp
+if (UWorld* World = GetWorld())
+{
+	// GameMode 가져오기
+	ANBC_GameMode* MyGM = Cast<ANBC_GameMode>(World->GetAuthGameMode());
+
+	if (MyGM)
+	{
+		HealthComponent->OnDeath.AddDynamic(MyGM, &ANBC_GameMode::OnMonsterKilled);
+	}
+}
+```
+
+<br/>
+
+**<웨이브 스폰 매니저>**   
+
+데이터 테이블, 스폰 볼륨을 웨이브 스폰 매니저를 만들어서 활용하기로 했다.   
+GameMode에 부착해서 사용할 수 있어서 좋다.   
+
+`ZombieSpawnRow (Data)`: "1웨이브에는 일반 좀비 10마리, 5초 뒤에 스피드 좀비 5마리" 같은 기획 데이터를 담는다.
+
+`ZombieSpawnVolume (Worker)`: 매니저가 "여기서 좀비 A 스폰해!"라고 명령하면 실제 좌표를 계산해 SpawnActor를 실행
+
+`WaveSpawnManager (Brain)`: DataTable을 읽고, 시간을 재고, 볼륨에게 스폰 명령을 내림   
+
+
+  </p>
+</details>
