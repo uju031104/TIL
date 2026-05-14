@@ -6050,6 +6050,77 @@ GameMode에 부착해서 사용할 수 있어서 좋다.
 
 `WaveSpawnManager (Brain)`: DataTable을 읽고, 시간을 재고, 볼륨에게 스폰 명령을 내림   
 
+  </p>
+</details>
+
+#### <!-- 26.05.14 -->
+<details> 
+  <summary>26.05.14</summary>
+  <p>
+
+**<vector에 push_back과 emplace_back의 차이점>**   
+
+push_back은 함수 인자로 이미 생성된 객체를 받습니다.   
+인자로 전달된 객체를 벡터의 끝에 추가하기 위해 복사 생성자(Copy Constructor) 또는 이동 생성자(Move Constructor)를 호출합니다.   
+임시 객체를 전달하면 임시 객체 생성 -> 복사/이동 수행 -> 임시 객체 소멸이라는 단계를 거친다.   
+
+```cpp
+std::vector<std::string> vec;
+std::string str = "Hello";
+
+vec.push_back(str);           // 복사 생성자 호출 (str은 그대로 남음)
+vec.push_back("World");       // "World"라는 임시 객체 생성 후 이동 생성자 호출
+```
+
+emplace_back은 객체를 직접 받는 대신, 객체를 생성하는데 필요한 인자들을 받습니다.   
+가변 인자 템플릿(Variadic Templates)을 사용하여, 벡터가 관리하는 메모리 공간 내부에서 객체를 직접 생성(Forwarding)합니다.   
+불필요한 복사나 이동 과정이 생략되므로 성능상 이점이 있습니다.   
+객체의 구조가 복잡하거나 생성자에 전달해야 할 인자가 여러 개일 때 유용합니다.   
+
+```cpp
+std::vector<std::string> vec;
+
+// "Hello"를 만들기 위한 인자만 전달 -> 벡터 내부 메모리에서 직접 string 객체 생성
+vec.emplace_back("Hello");
+```
+
+<br/>
+
+복사생성자    
+기존 객체의 내용을 그대로 복사해서 새로운 객체를 만들어서 성능 부하가 크다.   
+
+이동생성자   
+기존 객체가 가진 자원(메모리 주소 등)을 새 객체가 받아서 빠르다.   
+
+가변 인자 템플릿(Variadic Templates)   
+함수가 개수와 타입에 상관없이 인자를 받을 수 있게 해주는 문법이다.   
+...(Ellipsis) 기호를 사용한다.   
+
+std::forward(완벽한 전달, Perfect Forwarding)   
+가변 인자로 받은 재료들을 "원래 성질 그대로" 생성자에게 전달하는 기술이다.   
+함수 인자로 이름을 붙여 받는 순간 시스템상에서 '이름이 있는 변수(L-value)'가 되어버려 '임시 값(R-value)'특성을 잃어 버릴 수 있는데 원래 성질을 기억해서 그대로 넘겨주게 해준다.   
+
+<br/>
+
+해시 테이블(Hash Table)   
+key 를 사용하여 해시값으로 변환 후 저장
+Key-Value로 저장하며 임의의 크기를 가진 데이터를 고정된 크기의 고유한 숫자(해시 값)로 변환하여 저장하는 자료구조입니다.
+해시 함수(Hash Function)에 Key를 넣으면 저장할 인덱스를 반환하고 버킷(Bucket)에서 인덱스에 실제 데이터를 저장합니다.   
+
+해시 충돌(Hash Collision)   
+서로 다른 키가 같은 인덱스를 가리키는 현상입니다.   
+해결법으론 체이닝(Chaining)으로 같은 칸에 여러 데이터를 연결 리스트로 줄 세우는 방법이 있고   
+개방 주소법(Open Addressing)으로 비어있는 근처 칸을 찾아 저장하는 방법이 있습니다.   
+
+힙(Heap)   
+완전 이진 트리(Complete Binary Tree)이며 마지막 레벨을 제외하고 모든 노드가 채워져있습니다.   
+최대 힙(Max Heap) 부모 노드가 자식 노드보다 항상 큼(루트가 최댓값)   
+최소 힙(Min Heap) 부모 노드가 자식 노드보다 항상 작음(루트가 최솟값)   
+데이터 삽입 및 최우선 순위 데이터 삭제 시 O(log n)의 시간 복잡도입니다.   
+
+Red-Black Tree   
+일반적인 이진 탐색 트리와 다르게 균형을 맞춰서 높이를 O(log n)으로 강제하여 빠른 성능을 유지합니다.
+
 
   </p>
 </details>
