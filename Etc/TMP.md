@@ -6423,6 +6423,202 @@ void ABossAIController::TriggerPhaseTransition()
 }
 ```
 
+  </p>
+</details>
+
+#### <!-- 26.05.22 -->
+<details> 
+  <summary>26.05.22</summary>
+  <p>
+
+**<좀비들 끼리 튕겨내는 현상>**   
+
+이것 저것 다 건드려봤는데 단순하게 mesh의 collision pawn이 block이라서 서로 밀어내고 난리나는거였다. ignore로 바꾸니까 바로 해결   
+
+<br/>
+
+**<보스 공격 판정 구현>**   
+
+```cpp
+// 헤더 파일
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "BossAttackComponent.generated.h"
+
+
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class NBC_CH3_TEAMPROJECT_API UBossAttackComponent : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:	
+	UBossAttackComponent();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:	
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	// 공격 시작 (ANS_Begin에서 호출)
+	UFUNCTION(BlueprintCallable, Category = "Boss | Attack")
+	void StartMeleeTrace(FName InSocketName, float InRadius);
+
+	// 공격 추적 연산을 수행
+	UFUNCTION(BlueprintCallable, Category = "Boss | Attack")
+	void ExecuteMeleeTrace();
+
+	// 공격 종료 (ANS_End에서 호출)
+	UFUNCTION(BlueprintCallable, Category = "Boss | Attack")
+	void EndMeleeTrace();
+
+private:
+
+	UPROPERTY()
+	TObjectPtr<ACharacter> BossCharacter;
+
+	// 현재 공격 추적 중인지 여부
+	bool bIsAttacking;
+
+	// 추적 타겟 소켓 이름 및 반경
+	FName TargetSocketName;
+	float TraceRadius;
+
+	// 지난 프레임의 소켓 위치 기록 (궤적을 그리기 위함)
+	FVector LastSocketLocation;
+
+	// 한 번의 공격 콤보 내에서 이미 대미지를 입은 액터들의 목록 (중복 피격 방지)
+	UPROPERTY()
+	TArray<TObjectPtr<AActor>> AlreadyHitActors;
+};
+
+
+// C++ 파일
+#include "AI/BossAttackComponent.h"
+#include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
+
+
+UBossAttackComponent::UBossAttackComponent()
+{
+	PrimaryComponentTick.bCanEverTick = false;
+
+	bIsAttacking = false;
+	TargetSocketName = NAME_None;
+	TraceRadius = 50.f;
+	LastSocketLocation = FVector::ZeroVector;
+}
+
+void UBossAttackComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	BossCharacter = Cast<ACharacter>(GetOwner());
+}
+
+void UBossAttackComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}
+
+void UBossAttackComponent::StartMeleeTrace(FName InSocketName, float InRadius)
+{
+	if (!BossCharacter || !BossCharacter->GetMesh()) return;
+
+	bIsAttacking = true;
+	TargetSocketName = InSocketName;
+	TraceRadius = InRadius;
+
+	// 공격 시작 시점에 이미 맞았던 액터 리스트를 초기화
+	AlreadyHitActors.Empty();
+
+	LastSocketLocation = BossCharacter->GetMesh()->GetSocketLocation(TargetSocketName);
+}
+
+void UBossAttackComponent::EndMeleeTrace()
+{
+	bIsAttacking = false;
+	AlreadyHitActors.Empty();
+}
+
+// NotifyState에서 매 프레임 호출
+void UBossAttackComponent::ExecuteMeleeTrace()
+{
+	if (!bIsAttacking || !BossCharacter || !BossCharacter->GetMesh()) return;
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	// 현재 프레임의 소켓 위치
+	FVector CurrentSocketLocation = BossCharacter->GetMesh()->GetSocketLocation(TargetSocketName);
+
+	// 중복 프레임 제거
+	if (CurrentSocketLocation.Equals(LastSocketLocation, 0.1f)) return;
+
+	TArray<FHitResult> HitResults;
+	FCollisionShape SphereShape = FCollisionShape::MakeSphere(TraceRadius);
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(BossCharacter); // 보스 자신은 제외
+
+	// 이미 맞은 애들도 트레이스 계산에서 제외
+	for (AActor* HitActor : AlreadyHitActors)
+	{
+		if (HitActor)
+		{
+			QueryParams.AddIgnoredActor(HitActor);
+		}
+	}
+
+	// 플레이어 판정을 위해 ECC_Pawn을 기본 사용
+	// 추후 플레이어 피격용 전역 커스텀 채널 만들 예정(예: ECC_GameTraceChannel2)
+	FCollisionObjectQueryParams ObjectParams;
+	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	bool bHit = World->SweepMultiByObjectType(
+		HitResults,
+		LastSocketLocation,
+		CurrentSocketLocation,
+		FQuat::Identity,
+		ObjectParams,
+		SphereShape,
+		QueryParams
+	);
+
+	// 디버그 라인
+	 DrawDebugSphere(World, CurrentSocketLocation, TraceRadius, 8, FColor::Red, false, 1.0f);
+
+	if (bHit)
+	{
+		for (const FHitResult& Hit : HitResults)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (HitActor && !AlreadyHitActors.Contains(HitActor))
+			{
+				// 중복 타격 리스트에 추가
+				AlreadyHitActors.Add(HitActor);
+
+				// 플레이어의 TakeDamage / HealthComponent에게 전달
+				UGameplayStatics::ApplyDamage(
+					HitActor,
+					50.f, // 대미지 값 
+					BossCharacter->GetController(),
+					BossCharacter,
+					UDamageType::StaticClass()
+				);
+			}
+		}
+	}
+
+	// 다음 틱 연산을 위해 현재 소켓 위치를 지난 프레임 위치로 갱신
+	LastSocketLocation = CurrentSocketLocation;
+}
+
+
+```
+
 
   </p>
 </details>
