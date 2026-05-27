@@ -6651,16 +6651,16 @@ void UBossAttackComponent::ExecuteMeleeTrace()
 
 **<팀 프로젝트 정리>**   
 
-# AI 기능 명세서 (Project 8th Team11 CH3)
+AI 기능 명세서 (Project 8th Team11 CH3)
 
 발표 자료용 요약본
 
 ---
 
-## 1. 보스 AI 시스템 (Boss AI)
+1. 보스 AI 시스템 (Boss AI)   
 스테이트 트리(State Tree)를 기반으로 동작하며, 보스는 체력에 따라 총 3단계의 페이즈로 변화하고 각 페이즈마다 고유한 공격 패턴을 실행하도록 설계
 
-### **핵심 구성 요소**
+**핵심 구성 요소**   
 - **BossCharacter**: 보스의 체력 관리, 페이즈 전환 로직, 애니메이션 몽타주 재생을 담당
 - **BossAIController**: 플레이어 추적, 회전 처리, 페이즈별 공격 판단(근접/점프 공격) 및 StateTree 이벤트 전송을 관리
 - **BossAttackComponent**: 보스의 공격 판정 로직을 컴포넌트화하여 관리
@@ -6669,7 +6669,7 @@ void UBossAttackComponent::ExecuteMeleeTrace()
 - **RootMotion**: 루트 모션을 활성화하여 점프 공격 애니메이션 몽타주를 구현
 - **MotionWarping**: 모션 워핑을 이용하여 점프 공격 애니메이션의 Scale을 자연스럽게 조정
 
-### **주요 기능**
+**주요 기능**   
 - **페이즈 시스템 (3-Phase System)**
   - **Phase 1 (체력 100% ~ 70%)**: 기본적인 추적 및 근접 공격을 수행
   - **Phase 2 (체력 70% ~ 30%)**: 이동 속도가 증가하며, 일정 확률로 강력한 **점프 공격**을 시도
@@ -6681,41 +6681,76 @@ void UBossAttackComponent::ExecuteMeleeTrace()
 
 ---
 
-## 2. 일반 좀비 AI 시스템 (Zombie AI)
+2. 일반 좀비 AI 시스템 (Zombie AI)   
 비헤이비어 트리(Behavior Tree)를 기반으로 동작하며, 대량의 적이 효율적으로 동작하도록 설계
 
-### **핵심 구성 요소**
+**핵심 구성 요소**   
 - **ZombieCharacter**: 좀비의 기본 속성(공격력, 사거리 등) 정의 및 피격/사망 로직을 포함
 - **ZombieAIController**: 비헤이비어 트리 구동 및 블랙보드 데이터(TargetActor, Distance 등)를 갱신
 - **BehaviorTree**: 좀비의 기본 행동 사이클
 
-### **비헤이비어 트리 주요 태스크 (BTTasks)**
+**비헤이비어 트리 주요 태스크 (BTTasks)**   
 - **BTTask_Move**: 플레이어를 목표로 이동하며 적정 사거리를 유지
 - **BTTask_Attack**: 플레이어가 공격 사거리 및 각도 내에 있는지 판별하여 실행 (Dot Product 활용)
 
-### **최적화 및 편의 기능**
+**최적화 및 편의 기능**   
 - **RVO Avoidance**: 좀비들끼리 서로 겹치지 않고 자연스럽게 길을 찾아가도록 회피 시스템이 적용
 - **Random Animation**: 공격, 피격, 사망 시 여러 애니메이션 중 하나를 랜덤하게 재생하여 단조로움을 방지
 
 ---
 
-## 3. 스폰 및 웨이브 시스템 (Wave System)
+3. 스폰 및 웨이브 시스템 (Wave System)   
 데이터 테이블(DataTable)을 기반으로 웨이브 진행에 따른 적 스폰을 자동화
 
-### **주요 기능**
+**주요 기능**   
 - **WaveSpawnManager**: 게임 상태(GameState)의 현재 웨이브 정보를 읽어 데이터 테이블에 정의된 적 종류와 숫자를 스폰
 - **DataTable Driven**: 코드 수정 없이 데이터 테이블 편집만으로 웨이브 구성(적 종류, 스폰 수량 등)을 변경
 - **Spawn Volume**: 지정된 구역(Box Component) 내에서 적절한 위치를 계산하여 좀비와 보스를 생성
 
 ---
 
-## 4. 공통 전투 시스템에 연동
+4. 공통 전투 시스템에 연동   
 - **HealthComponent**: 보스와 좀비 모두 공통된 체력 컴포넌트를 사용하여 데미지 처리 및 사망 이벤트를 관리
 - **HitReactComponent**: 피격 시 물리적인 반응(Hit Reaction)을 처리하여 타격감을 강화
 - **GameMode**: 적 처치 시 게임 모드에 알림을 보내어 점수 산정 및 다음 웨이브 트리거로 활용
 
-    
-   
+  </p>
+</details>
+
+#### <!-- 26.05.27 -->
+<details> 
+  <summary>26.05.27</summary>
+  <p>
+
+팀 프로젝트 회고록 작성      
+
+팀 프로젝트간 발생한 트러블 슈팅 정리   
+
+---
+- 문제: 좀비가 플레이어를 추적(MoveTo)할 때 회전이 부자연스럽고 서로 겹치는 현상
+- 과정: 회전 관련 설정을 확인해보았고 겹치지 않게 하는 옵션이 있는지 검색
+- 결과: MovementComponent의 RotationRate를 이용해 부드러운 회전을 만들었고 bUseRVOAvoidance를 true로 하여 군중 회피를 활성화   
+---
+- 문제: 몬스터를 직접 배치하면 문제없지만 스폰을 하면 로직이 작동하지 않는 현상
+- 과정: 스폰을 하면 AIController의 BeginPlay가 OnPossess보다 더 빠르게 작동하는걸 로그로 확인
+- 결과: Pawn을 Possess하기전에 Pawn과 관련된 로직을 BeginPlay에 넣지말고 OnPossess에 넣으면 해결
+---
+- 문제: 몬스터가 공격을 실행할 때 제자리가 아니라 플레이어에게 미끄러지듯 오는 현상
+- 과정: StopMovement 등을 사용하여 움직임을 멈춰보려고 했지만 멈추는 순간 MoveTo가 발생해서 소용이 없었고 MoveTo를 Task 자체를 멈출 방법이 필요
+- 결과: BT같은 경우 Wait노드를 공격 몽타주 시간만큼 실행을 해주고 ST의 경우 같은 방법으로 Delay를 걸어주면 해결
+---
+- 문제: Mixamo에서 가져온 애니메이션과 Skeleton에 Root Motion을 사용할 수 없는 현상
+- 과정: AI를 참고하여 정말 이것저것 다 건드려 봤는데 결론은 Mixamo의 애니메이션은 Root가 없어서 Root Motion을 못 쓰는 거였다.
+- 결과: 튜터님의 도움을 받아서 Blender에서 Root를 추가시켜주는 기능을 애드온 하는 법을 알게 됐고 변환을 통해 해결
+---
+- 문제: 보스의 점프 공격의 Z축이 막히는 현상
+- 과정: 여러 부분을 디버깅하면서 캡슐 컴포넌트가 바닥에 붙어있는 것(Location.Z도 고정, Velocity도 고정)을 확인하고 Z축 관련된 모든 옵션을 확인했는데 보스의 점프 준비자세에서 z축이 잠깐 아래로 갔다가 올라오는데 이때 엔진은 보스가 착지했다고 판단(그래서 Jump , Falling 옵션은 불가능)
+- 결과: 정말 많은 시도 끝에 공중에 있는 동안만 Movement를 Flying으로 바꿔서 해결
+---
+- 문제: Motion Warping을 사용해서 점프 거리를 늘릴 때 보스가 뒤로 튀어 나갔다가 다시 앞으로 튀어나가는 현상
+- 과정: 보스가 점프 할 때 양 팔을 뒤로 젖히는데 이 때 미세하게 보스의 특정부분이 뒤로간다고 판단해서 거리를 늘린 만큼 순간적으로 뒤로 튀어갔다가 양팔을 젖히는 모션이 끝나면 앞으로 튀어 나감
+- 결과: 이 부분은 애니메이션을 직접 수정해야해서 Scale 옵션을 X, Y, Z축을 각자 조절하여 적절한 점프 높이, 거리를 만들어내서 해결
+---
 
 
   </p>
