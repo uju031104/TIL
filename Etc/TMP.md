@@ -6857,3 +6857,92 @@ AI 기능 명세서 (Project 8th Team11 CH3)
 
   </p>
 </details>
+
+#### <!-- 26.05.29 -->
+<details> 
+  <summary>26.05.29</summary>
+  <p>
+
+에이타니 퀴즈 정리   
+
+UnrealBuildTool(UBT)은 C++ 코드를 바이트코드로 변환하지 않습니다. 언리얼 C++는 네이티브 코드로 컴파일되며, 가상 머신에서 실행되지 않습니다.
+
+**<오브젝트 풀링이란?>**   
+
+오브젝트 생성, 파괴를 한꺼번에 할 때면 CPU에 부담이 엄청 가게된다.   
+
+모든 기능을 다 끄고(Tick, Visible 등등) 총알 수백발을 미리 생성해둔다.(추적 컴포넌트는 부착하지 않은 상태)   
+
+쓰는 순간 기능을 켜주고(컴포넌트도 부착) 총알이 사라져야할때 다시 기능을 다 끄고 원래 총알 모아둔곳에 다시 보관을 해줘서 생성, 소멸 자체를 하지 않아 부하를 없앤다.    
+
+구조   
+MyObjectPool -> Actor ( Manager )   
+PooledObject -> Component ( 추적용도 )   
+PooledObjectData -> None ( 파라미터용 )   
+
+```cpp
+// 오브젝트 생성하는 코드
+void AMyObjectPool::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	FActorSpawnParameters SpawnParams;
+
+	// 액터의 종류
+	for (int32 PoolIndex = 0; PoolIndex < PooledObjectData.Num(); ++PoolIndex)
+	{
+		// 실제 컴포넌트가 들어갈 공간
+		FSingleObjectPool CurrentpoolIndex;
+
+		// 이름 정해주기
+		SpawnParams.Name = FName(FString::Printf(TEXT("%s"), *PooledObjectData[PoolIndex].ActorName));
+
+		// 내가 직접 생성한 이름을 최대한 사용해달라(규칙 만들기)
+		SpawnParams.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		// 액터 하나당 몇개를 만들어줄지
+		for (int32 ObjectIndex = 0; ObjectIndex < PooledObjectData[PoolIndex].PoolSize; ++ObjectIndex)
+		{
+			// 스폰
+			AActor* SpawnedActor = GetWorld()->SpawnActor(
+				PooledObjectData[PoolIndex].ActorTemplate,
+				&FVector::ZeroVector,
+				&FRotator::ZeroRotator,
+				SpawnParams
+			);
+
+			// 외부 이름 재설정
+			SpawnedActor->SetActorLabel(SpawnedActor->GetName());
+
+			// UObject 타입은 NewObject로
+			UPooledObject* PoolComp = NewObject<UPooledObject>(SpawnedActor);
+			// 기능적 컴포넌트를 등록
+			PoolComp->RegisterComponent();
+			// 특정 액터의 소유 확정(컴포넌트 붙이기)
+			SpawnedActor->AddInstanceComponent(PoolComp);
+			// MyObjectPool을 넘겨줌
+			PoolComp->Init(this);
+
+			// 방금 만들어준 컴포넌트를 저장
+			CurrentpoolIndex.PooledObjects.Add(PoolComp);
+
+			// 이제 액터를 안보이게 만들어줄차례
+			SpawnedActor->SetActorHiddenInGame(true);
+			SpawnedActor->SetActorEnableCollision(false);
+			SpawnedActor->SetActorTickEnabled(false);
+			SpawnedActor->AttachToActor(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+
+		}
+
+		// 컴포넌트 뭉치 저장
+		Pools.Add(CurrentpoolIndex);
+	}
+}
+```
+
+
+
+
+  </p>
+</details>
