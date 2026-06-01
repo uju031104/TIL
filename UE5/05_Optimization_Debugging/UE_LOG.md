@@ -30,3 +30,17 @@ DEFINE_LOG_CATEGORY(LogSparta);
 
 보통은 로그만 모아둔 헤더를 따로 만들어서 관리
 ```
+
+<br/>
+
+***
+
+<br/>
+
+### 채팅/로그 동시 출력   
+
+```cpp
+#include "Kismet/KismetSystemLibrary.h"
+
+UKismetSystemLibrary::PrintString(this, ChatMessageString, true, true, FLinearColor::Red, 5.0f);
+```

@@ -6941,6 +6941,371 @@ void AMyObjectPool::BeginPlay()
 }
 ```
 
+  </p>
+</details>
+
+#### <!-- 26.06.01 -->
+<details> 
+  <summary>26.06.01</summary>
+  <p>
+
+BindWidget   
+순수 가상함수처럼 강제로 정의하게 만드는 키워드   
+키워드가 붙은 UPROPERTY 변수가 자식 블루프린트에 강제로 존재하게 함    
+
+```cpp
+// 이게 붙으면 자식 위젯 블루프린트에 똑같은 UEditableTextBox가 강제됨
+// 이 상태로 에디터에 가서 WBP를 만들면 컴파일에 '!'가 떠있음.   
+// EditableTextBox를 만들어서 EditableTextBox_ChatInput라고 이름을 바꾸고 IsVariable 체크하고 컴파일하면 끝
+UPROPERTY(meta = (BindWidget))
+TObjectPtr<UEditableTextBox> EditableTextBox_ChatInput;
+```
+
+<br/>
+
+UI 델리게이트 바인드 하기   
+
+```cpp
+if (EditableTextBox_ChatInput->OnTextCommitted.IsAlreadyBound(this, &ThisClass::OnChatInputTextCommitted) == false)
+{
+	EditableTextBox_ChatInput->OnTextCommitted.AddDynamic(this, &ThisClass::OnChatInputTextCommitted);
+}
+```
+
+<br/>
+
+채팅창 Enter 기능
+
+```cpp
+void UCXChatInput::OnChatInputTextCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnEnter)
+	{
+		// 엔터를 친 플레이어를 가져옴 GetOwningPlayer()
+		APlayerController* OwningPlayerController = GetOwningPlayer();
+		if (IsValid(OwningPlayerController) == true)
+		{
+			ACXPlayerController* OwningCXPlayerController = Cast<ACXPlayerController>(OwningPlayerController);
+			if (IsValid(OwningCXPlayerController) == true)
+			{
+				OwningCXPlayerController->SetChatMessageString(Text.ToString());
+
+				// 빈 텍스트로 밀어주기
+				EditableTextBox_ChatInput->SetText(FText());
+			}
+		}
+	}
+}
+```
+
+<br/>
+
+채팅/로그 동시 출력   
+
+```cpp
+#include "Kismet/KismetSystemLibrary.h"
+
+UKismetSystemLibrary::PrintString(this, ChatMessageString, true, true, FLinearColor::Red, 5.0f);
+```
+
+<br/>
+
+서버의 구조   
+
+1.P2P(Peer To Peer Server)   
+다크소울, 토렌트같은 서버   
+각각의 컴퓨터가 클라이언트이자 서버인 구조   
+
+2.Listen Server   
+클라이언트이자 서버인 방장(Host)이 있고, 나머지 참가자(Guest)는 모두 클라이언트 역할만 맡는 형태   
+P2P의 일종이라고도 볼 수 있고 마크, 어몽어스 등이 있음   
+
+3.Dedicated Server   
+서버를 담당하는 컴퓨터가 따로 있다.   
+대부분의 한국온라인 게임들이 가지고 있는 형태   
+
+**서버 프로세스의 실행**   
+PIE(Play In Editor)를 했거나, Server.exe를 수동으로 실행하는 식으로 서버 프로세스 실행   
+실행할 때 Open {Level이름}?Listen  명령어가 인자로 전달된다. 그리고 해당 Level을 열어둔다.   
+이때 Socket이 생성되며 다른 PC가 접속 가능하게끔 한다. Listen 명령어가 없다면 싱글플레이다.   
+
+**서버와 GameMode**   
+Level에는 WorldSettings 속성이 있고, WorldSettings에는 GameMode와 GameState 정보가 있다.   
+이를 통해 GameMode와 GameState 액터를 생성한다.   
+중요한 것은 GameMode 액터는 전체 컴퓨터에서 딱 한 곳(Server)에만 존재한다는 것.   
+그래서 GameMode와 Server를 동일시해도 된다.   
+
+**클라이언트와 서버**   
+클라이언트는 서버의 IP주소와 포트번호로 접속 시도. 서버는 접속 시도하는 클라이언트에게 Level 정보를 넘긴다.   
+클라이언트도 해당 Level을 열고, Level을 여는데 성공했다고 데디 서버에게 알린다.   
+
+Level을 여는데 성공한 클라이언트(Client1) 전용 PlayerState, PlayerController, PlayerCharacter가 서버에 생성된다.   
+이것이 다시 Client1에 복제된다. GameState도 복제된다.
+
+**여러 클라이언트와 서버**   
+또 다른 클라이언트도 접속. 마찬가지로 서버는 접속 시도하는 또 다른 클라이언트에게 Level 정보를 넘긴다.   
+클라이언트도 해당 Level을 열고, Level을 여는데 성공했다고 데디 서버에게 알린다.   
+
+Client2 전용 PlayerState, PlayerController, PlayerCharacter가 서버에 생성된다.   
+이것이 다시 Client2에 복제된다. GameState도 복제된다.    
+이때, 클라이언트 간의 PlayerState와 PlayerCharacter도 복제되면서 서로가 보이게 된.   
+
+<br/>
+
+Visual Studio에서 코드 베이스가 엄청 많아지면 Ctrl + T로 찾으면 된다.   
+자동완성 사라지면 Ctrl + SpaceBar   
+
+<br/>
+
+멀티 세팅을 안해줬는데 타 클라이언트에서 채팅이 보이는 현상   
+-> 마치 온라인 게임에서 남이 죽었는데 내 UI에 죽었다고 뜨는 것과 같음   
+
+```cpp
+// 위젯 객체는 Owning Client에서만 생성되면 됨
+// Owning == Local 이라고 보면 된다.
+// 이렇게 IsLocalController를 호출해서 Owning Client를 판별한다.
+if (IsLocalController() == false)
+	{
+		return;
+	}
+
+```
+
+<br/>
+
+**NetMode**   
+로직이 서버에서 돌고 있는지 클라에서 돌고 있는지 알아야 하는데 그때 필요한 것이 `NetMode`이다.   
+
+**NetConnection 이란?**   
+- 다른 PC와의 연결이 발생하면 그에 대응하는 `UNetConnection` 객체도 생성   
+- 서버에 클라이언트가 접속하면 서버에는 `ClientConnection` 객체 추가   
+- 클라이언트에는 `ServerConnection` 객체 생성
+- 두 PC는 `UNetConnection` 객체를 통해 통신
+- `UNetDriver`는 생성된 `UNetConnection` 객체를 소유하고 관리
+- 서버 PC에 생성된 `UNetDriver`는 접속한 클라이언트의 수 만큼 `UNetConnection`을 관리
+- 클라이언트 PC에 생성된 `UNetDriver`는 `ServerConnection` 단 하나만을 관리
+
+**NetDriver**   
+- 언리얼 네트워크 통신에서 로우레벨 동작들을 관리하는 클래스
+- 싱글플레이에서는 `UNetDriver` 객체가 생성되지 않음
+- 멀티플레이에서만 `UWorld::Listen()` 함수를 통해 `UNetDriver` 객체 생성
+- 멀티플레이에 참여하는 각 PC마다 `UNetDriver` 객체 생성
+
+<br/>
+
+```cpp
+// UNetDriver.h
+
+UCLASS(...)
+class UNetDriver : public UObject, public FExec
+{
+	...
+	
+	/** Connection to the server (this net driver is a client) */
+	UPROPERTY()
+	TObjectPtr<class UNetConnection> ServerConnection;
+	// ServerConnection는 딱 하나
+
+	/** Array of connections to clients (this net driver is a host) - unsorted, and ordering changes depending on actor replication */
+	UPROPERTY()
+	TArray<TObjectPtr<UNetConnection>> ClientConnections;
+	// ClientConnections 복수형이다. 클라는 여러개라서
+	...
+
+}
+
+// ServerConnection이 nullptr이고 ClientConnections만 가지고 있다면?
+// -> 해당 NetMode는 서버
+```
+
+<br/>
+
+**언리얼에서의 OwnerShip**   
+
+- 하나의 `ClientConnection`은 하나의 `PlayerController`를 소유
+- `PlayerController`의 **Owning Connection**은 `ClientConnection`
+- `PlayerController`가 빙의하는 폰의 `Owner` 속성은 해당 `PlayerController`로 설정
+- 폰에 무기 액터가 생성되고, 무기 액터의 `Owner` 속성에 해당 폰을 설정할 수도 있다.
+- `ClientConnection`에서부터 무기 액터에 이르는 소유 관계를 패밀리라고도 부른다.
+- 소유 관계 속에 있는 액터가 본인의 **Owning Connection**을 얻으려면 
+`AActor::GetNetConnection()` 함수를 호출하면 됩니다.
+- 이 소유 관계가 후에 배울 **RPC**와 **Property Replication**과 관련됨
+
+<br/>
+
+멀티플레이 디버깅용 나만의 출력 만들기(모듈)   
+
+```cpp
+// ChatX.h
+
+#pragma once
+
+#include "CoreMinimal.h"
+
+class ChatXFunctionLibrary
+{
+public:
+	// static이라서 ChatXFunctionLibrary 객체가 없어도 호출 가능
+	// InWorldContextActor 가져올 월드에 있는 어떤 액터를 넣어도 알아서 월드를 찾아줌 단, nullptr이면 안됨
+	static void MyPrintString(const AActor* InWorldContextActor, const FString& InString, float InTimeToDisplay = 1.f, FColor InColor = FColor::Cyan)
+	{
+		if (IsValid(GEngine) == true && IsValid(InWorldContextActor) == true)
+		{
+			// 클라나 ListenServer를 위한 출력
+			if (InWorldContextActor->GetNetMode() == NM_Client || InWorldContextActor->GetNetMode() == NM_ListenServer)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, InTimeToDisplay, InColor, InString);
+			}
+			else // dedicated server를 위한 로그(콘솔창이라 로그만 가능)
+			{
+				UE_LOG(LogTemp, Log, TEXT("%s"), *InString);
+			}
+		}
+	}
+	// static이라서 ChatXFunctionLibrary 객체가 없어도 호출 가능
+	static FString GetNetModeString(const AActor* InWorldContextActor)
+	{
+		FString NetModeString = TEXT("None");
+
+		if (IsValid(InWorldContextActor) == true)
+		{
+			ENetMode NetMode = InWorldContextActor->GetNetMode();
+			if (NetMode == NM_Client)
+			{
+				NetModeString = TEXT("Client");
+			}
+			else
+			{
+				if (NetMode == NM_Standalone)
+				{
+					NetModeString = TEXT("StandAlone");
+				}
+				else // Listen or Dedicated Server(지금 배우고있는 DedicatedServer일 때 출력) 
+				{
+					NetModeString = TEXT("Server");
+				}
+			}
+		}
+
+		return NetModeString;
+	}
+};
+
+
+// 로그 찍을 곳에 헤더 추가
+#include "ChatX.h"
+
+void ACXPlayerController::PrintChatMessageString(const FString& InChatMessageString)
+{
+	//UKismetSystemLibrary::PrintString(this, ChatMessageString, true, true, FLinearColor::Red, 5.0f);
+	
+	FString NetModeString = ChatXFunctionLibrary::GetNetModeString(this);
+	FString CombinedMessageString = FString::Printf(TEXT("%s: %s"), *NetModeString, *InChatMessageString);
+	ChatXFunctionLibrary::MyPrintString(this, CombinedMessageString, 10.f);
+	// 문제 상황이 생기면, 위와 같은 로깅 함수로 다양한 변수의 값들과 함수이름을 확인해서 
+	// 문제의 원인을 적극적으로 찾아보세요!
+}
+
+// 서버/클라에 맞게 출력이 됨
+```
+
+<br/>
+
+**Authority와 Proxy**   
+
+서버에 스폰 된 액터가 가진 **`NetRole`** 속성 값은 언제나 **`Authority`**다.
+다시 말해, 서버에 스폰 된 액터에서 수행될 로직은 **“권한을 가지고 있다”**를 뜻한다.
+그러니 게임에 중대한 영향을 끼치는 로직은 `NetRole`이 `Authority`일 때 수행해야 한다.   
+
+`NetRole`이 `Authority`인 액터가 클라이언트로 복제되었을 때(`Replicated`),
+클라이언트에 복제된 액터의 `NetRole` 속성 값은 `Proxy`다.
+"**허상**"이라는 뜻이다.
+
+여기서는 중요한 로직을 수행하면 안 된다.   
+
+<br/>
+
+**Local Role과 Remote Role**   
+
+게임에 중대한 영향을 끼치는 로직을 작성하기 위해, 
+해당 액터가 현재 어느 PC에 스폰 되어서 로직이 돌고 있는지 구분해야 한다.   
+
+이를 구분하기 위해 현재 동작하는 컴퓨터에서의 롤을 **로컬 롤(Local Role)**,
+커넥션으로 연결된, 반대편 컴퓨터에서의 롤을 **리모트 롤(Remote Role)**이라고 한다.   
+
+`Server`의 Actor가 `Authority`라는 `Local Role`을 가지고 있고 `Autonomous`라는 `Remote Role`을 가지고 있으면 `Client`는 반대로 `Autonomous`라는 `Local Role`을 가지고 있고 `Authority`라는 `Remote Role`을 가지고 있다.
+
+<br/>
+
+**NetRole 종류**   
+
+**None**
+
+- 보통의 경우, 레플리케이션 되지 않는 액터를 뜻한다. 다만, 무조건적이진 않다.
+- ex) LocalRole은 Authority이고 RemoteRole이 None이라면
+서버에서 스폰 되고, 클라쪽으로 레플리케이션 되지 않는 액터라고 볼 수 있다.
+
+**Authority**
+
+- 게임에 중대한 영향을 끼칠 수 있는 권한을 가진 액터를 뜻한다.
+- 서버에서 스폰된 액터가 LocalRole으로 Authority를 가질 수 있다.
+- **ex)** `GameMode`
+
+**Autonomous Proxy**
+
+- Authority 액터의 복제본이다.
+서버로부터 데이터를 수신 받아서 동기화도 되면서, 서버로 송신도 가능하다.
+- **ex)** `PlayerController`
+
+**Simulated Proxy**
+
+- Authority 액터의 복제본이다.
+서버로부터 수신 받아서 동기화 당하기만 한다.
+- **ex)** 내 화면에 보이는 친구의 `PlayerCharacter`
+
+
+<br/>
+
+**Role 디버깅**   
+
+아까 만들었던 디버깅 모듈에 추가해주면 된다.   
+```cpp
+static FString GetRoleString(const AActor* InActor)
+{
+	FString RoleString = TEXT("None");
+
+	if (IsValid(InActor) == true)
+	{
+		FString LocalRoleString = UEnum::GetValueAsString(TEXT("Engine.ENetRole"), InActor->GetLocalRole());
+		FString RemoteRoleString = UEnum::GetValueAsString(TEXT("Engine.ENetRole"), InActor->GetRemoteRole());
+
+		RoleString = FString::Printf(TEXT("%s / %s"), *LocalRoleString, *RemoteRoleString);
+	}
+
+	return RoleString;
+}
+```
+
+<br/>
+
+**폰의 소유에 따른 서버 로그 변화**   
+
+```cpp
+[2026.06.01-11.31.04:144][ 56]LogTemp: CXPawn::BeginPlay() Server [ROLE_Authority / ROLE_SimulatedProxy]
+[2026.06.01-11.31.04:144][ 56]LogTemp: CXPawn::PossessedBy() Server [ROLE_Authority / ROLE_AutonomousProxy]
+```
+
+`Pawn`이 `빙의(Possessed)`가 된 후에 `Ownership`이 설정되고 특정 `Controller`의 소유가 되고 또 컨트롤러는 `Connection`의 소유가 됨. 즉, 하나의 `패밀리`가 됐다는걸 알 수 있음.   
+마지막으로 이 패밀리에 액터가 들어가면 `Autonomous Proxy`가 된다.   
+
+<br/>
+
+**서버에서 스폰 된 캐릭터 B관련 설명 중...**   
+
+궁금한 점
+1. Possessed가 안된다고 했는데 AIController를 OnPossessed() 할 수 있지 않나?
+2. 서버에서 스폰된 캐릭터가 클라이언트에서 접속한 내 눈에 보이려면 Replicated가 되어야 하는거 아닐까?
+
 
 
 

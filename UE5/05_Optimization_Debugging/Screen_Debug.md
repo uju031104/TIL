@@ -22,3 +22,16 @@ if (GEngine)
 }
 ```
  
+ <br/>
+
+***
+
+<br/>
+
+### 채팅/로그 동시 출력   
+
+```cpp
+#include "Kismet/KismetSystemLibrary.h"
+
+UKismetSystemLibrary::PrintString(this, ChatMessageString, true, true, FLinearColor::Red, 5.0f);
+```
