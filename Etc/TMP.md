@@ -7503,3 +7503,91 @@ UDP는 신뢰성보다는 속도와 실시간성을 최우선으로 생각하는
 
   </p>
 </details>
+
+#### <!-- 26.06.05 -->
+<details> 
+  <summary>26.06.05</summary>
+  <p>
+
+마스터 과제 중 좀비 100킬 퀘스트를 같은 파티원이랑 할 수 있게 하는 기능이 있는데 이걸 위해 PlayerState를 알아봤다.   
+
+```cpp
+//PlayerState.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/PlayerState.h"
+#include "MyPlayerState.generated.h"
+
+UCLASS()
+class ZOMBIEPRACTICE_API AMyPlayerState : public APlayerState
+{
+	GENERATED_BODY()
+	
+public:
+	AMyPlayerState();
+
+	void SetPartyID(int32 NewPartyID);
+	int32 GetPartyID() const;
+
+private:
+	// 기본값은 -1
+	UPROPERTY(VisibleAnywhere, Category = "Party")
+	int32 PartyID = -1;
+};
+
+//PlayerState.cpp
+#include "MyPlayerState.h"
+
+AMyPlayerState::AMyPlayerState()
+{
+}
+
+void AMyPlayerState::SetPartyID(int32 NewPartyID) 
+{ 
+	PartyID = NewPartyID;
+}
+
+int32 AMyPlayerState::GetPartyID() const 
+{ 
+	return PartyID; 
+}
+```
+
+간단하게 PartyID를 관리하고 캐릭터 생성 시 각 캐릭터마다 PartyID를 설정(이 부분은 캐릭터에서 해줌)    
+
+<br/>
+
+**레플리케이션(Replication)**   
+
+생성된 액터의 정보를 네트워크 내 다른 클라이언트에게 복제하는 작업을 레플리케이션이라고 한다.   
+
+서버-클라이언트 모델에서는 서버에서 클라이언트로 복제되는 것이 기본 규칙이다.   
+
+레플리케이션의 두가지 방법   
+- RPC(Remote Procedure Call)
+- Property Replication
+  
+
+Property Replication   
+
+우리가 원하는 속성만 다른 클라이언트에게 복제하는 것을 `Property Replication`라고 한다.   
+항상 `Authority`에서 `Proxy`로만 복제가 가능하다.   
+
+**Property Replication 설정 방법**   
+
+1. 액터의 `bReplicates` 속성을 true로 설정한다.
+2. `UPROPERTY()`에 `Replicated` 키워드를 추가한다.
+3. `GetLifetimeReplicatedProps()` 함수에 네트워크로 복제할 속성을 추가한다.
+   - `#include “Net/UnrealNetwork.h”` 헤더파일 추가한다.
+   - `DOREPLIFETIME` 매크로를 사용해 복제할 속성을 명시한다.
+
+<br/>
+
+Ctrl + M O   
+VS에서 함수 다 닫기   
+
+
+
+  </p>
+</details>
