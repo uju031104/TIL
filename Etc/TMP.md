@@ -7591,3 +7591,137 @@ VS에서 함수 다 닫기
 
   </p>
 </details>
+
+#### <!-- 26.06.09 -->
+<details> 
+  <summary>26.06.09</summary>
+  <p>
+
+**Property Replication 설정 방법**   
+
+저번에 공부했던 부분 실제 적용 코드   
+
+```cpp
+// .h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/PlayerState.h"
+#include "CXPlayerState.generated.h"
+
+UCLASS()
+class CHATX_API ACXPlayerState : public APlayerState
+{
+	GENERATED_BODY()
+
+public:
+	ACXPlayerState();
+
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UPROPERTY(Replicated)
+	FString PlayerNameString;
+
+};
+
+
+// .cpp
+#include "CXPlayerState.h"
+#include "Net/UnrealNetwork.h" // 추가
+
+ACXPlayerState::ACXPlayerState()
+{
+	bReplicates = true;
+}
+
+void ACXPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, PlayerNameString);
+	// ThisClass == ACXPlayerState
+}
+```
+
+<br/>
+
+**Stack Overflow에 관한 고찰**   
+
+`Stack Overflow`가 왜 발생하는지, 어떻게 해결해야 하는지 여러방면에서 알아봤다.   
+
+1. 원인   
+    `Stack Overflow`는 기본적으로 스택 메모리 용량의 부족으로 나타나는 현상이다.   
+	무한루프에 빠진 재귀함수, 너무 깊은 함수호출(`Deep Call Stack`), 크기가 너무 큰 지역변수를 Stack 영역에 할당하면 `Stack Overflow`가 발생한다.
+2. 해결법   
+	재귀 함수의 경우 `Base Case`를 작성하여 무한루프에 빠지지 않게 하고 너무 큰 지역변수는 `Heap`영역에 동적할당을 해준다.   
+	`TCO`(Tail Call Optimization, 꼬리 물기 최적화)를 이용해서 무한루프를 원천 차단하는 방법도 있다.   
+	마지막으로 `IDE` 설정을 들어가서 `Stack` 크기 자체를 키울 수 있다.   
+
+<br/>
+
+위에서 나온 `TCO`와 `Stack` 크기를 키우는 방법에 대해서 좀 더 자세히 알아봤다.   
+
+1. TCO란?   
+	`Tail Call Optimization`(꼬리 물기 최적화)라고 하며 재귀호출시 필요한 연산을 매개변수로 넣어서 오직 호출, 반환만 이뤄지게 하는 방법이다. 이렇게 하면 컴파일러가 스택 프레임을 새로 쌓지 않고 하나의 스택 프레임내에서 변수만 바꾸며 계산을 한다. (내부적으로 While문으로 계산) 따라서 Stack Overflow 자체를 원천 차단할 수 있다.   
+	단, 언리얼 엔진에선 스마트 포인터의 경우 함수 반환 시 소멸자를 자동으로 호출해버려 TCO 조건에 맞지 않고 리플렉션 시스템, 가비지 컬렉션 등과 시스템적으로 맞지 않아서 사용하지 않는다.(중간에 다른 함수 호출 없이 반환만 해야하는데 중간에 시스템적으로 개입이 많음)
+2. Stack 크기 키우기   
+   `Solution Explorer`에서 `ToolChain`을 검색하면 여러 OS 전용 `ToolChain.cs` 파일이 나온다.   
+   여기서 내 환경은 MSVC를 사용하기 때문에 `VCToolChain.cs`로 들어가서 `DefaultStackSize`를 찾아서 고쳐준다.   
+
+```cpp
+// VCToolChain.cs 원래 코드
+// Set the default stack size.
+if (LinkEnvironment.Platform.IsInGroup(UnrealPlatformGroup.Microsoft))
+{
+	if (LinkEnvironment.DefaultStackSize > 0)
+	{
+		if (LinkEnvironment.DefaultStackSizeCommit > 0)
+		{
+			Arguments.Add("/STACK:" + LinkEnvironment.DefaultStackSize + "," + LinkEnvironment.DefaultStackSizeCommit);
+		}
+		else
+		{
+			Arguments.Add("/STACK:" + LinkEnvironment.DefaultStackSize);
+		}
+	}
+}
+
+// 아래와 같이 수정해서 직접 크기를 지정할 수 있다!
+// 10MB로 지정
+Arguments.Add("/STACK:10485760");
+
+// 스택 크기 팁
+// 5 MB: 5242880 (언리얼 기본값보다 약간 더 여유로운 수준)
+// 10 MB: 10485760 (일반적으로 깊은 알고리즘이나 스택 오버플로우 회피용으로 가장 추천)
+// 20 MB: 20971520 (정말 대규모 데이터나 비정상적으로 깊은 호출 스택이 필요할 때)
+```
+
+<br/>
+
+하.지.만. 중요한건 현재 저렇게 스택 크기를 바꿔도 실제로 적용이 안된다는 것 이다.  
+
+이유는?   
+에픽게임즈 런처를 통해 다운받은 언리얼 엔진은 소스코드가 아니라 컴파일이 끝난 바이너리 상태인 실행파일(.exe) 및 DLL(Dynamic Link Library) 파일이다.   
+따라서, 나중에 배포를 할 때 풀 패키징 상태에서 가능하다.   
+(물론, 간접적으로 바꾸는 방법이 존재한다.)   
+
+```cpp
+// 간접적으로 Stack 크기 바꾸는 방법
+// Config/DefaultEngine.ini
+
+[/Script/WindowsTargetPlatform.WindowsTargetSettings]
+DefaultStackSize=10485760
+DefaultStackSizeCommit=10485760
+```
+
+<br/>
+
+DLL(Dynamic Link Library)이란?   
+
+런타임중에 `.dll` 파일에 분리해둔 기능이 필요한 순간에만 메모리에 올려서 연결(Link)하는 방법이다.   
+메모리를 절약할 수 있고 기능을 나누기 때문에 부분적으로 업데이트가 가능하다.   
+
+
+
+  </p>
+</details>
