@@ -7936,7 +7936,175 @@ CPU가 일을 처리하느라 바쁠 때 급하게 처리해야할 일이 있으
 스킬버튼을 누를 때 마다 새로운 인스턴스가 생성됨(InstancedPerExecution)    
 
 
+  </p>
+</details>
 
+#### <!-- 26.06.15 -->
+<details> 
+  <summary>26.06.15</summary>
+  <p>
+
+에이타니   
+
+인터페이스   
+인터페이스는 상속이 아닌 계약(Contract)의 개념이다. 부모 클래스의 기능을 자동으로 상속받지 않으며, 각 클래스가 인터페이스의 함수를 직접 구현해야 한다.   
+
+A*(A-Star) 알고리즘   
+A* 알고리즘의 핵심 비용 함수는 f(n) = g(n) + h(n)이다. 여기서 g(n)은 시작점부터 현재 노드 n까지의 실제 이동 비용이고, h(n)은 현재 노드에서 목표 지점까지의 추정 비용(휴리스틱)이다.   
+
+<br/>
+
+과제 9번을 하는 중 시도횟수가 잘 못 출력되는 현상이 발생했다.   
+
+원인은 카운팅을 하기 전에 클라이언트에서 미리 문자열을 만들고 검증(3자리 숫자인지) 후 결과값을 서버로 올려보내기 때문이었다.   
+
+클라에서는 단순하게 값을 올려보내고 서버에서 검증을 하면서 카운팅을 해주는 방식으로 바꿔보았다.   
+
+```cpp
+// ----------- 기존 코드 -----------
+// 로컬(PlayerController)
+void ACXPlayerController::SetChatMessageString(const FString& InChatMessageString)
+{
+    // ...
+    ACXPlayerState* CXPS = GetPlayerState<ACXPlayerState>();
+    if (IsValid(CXPS) == true)
+    {
+        // 카운팅을 하지 않았는데 문자열을 만들어버린다.
+        FString CombinedMessageString = CXPS->GetPlayerInfoString() + TEXT(": ") + InChatMessageString;
+
+        // 카운팅이 안된 문자열을 서버로 보낸다.
+        ServerRPCPrintChatMessageString(CombinedMessageString);
+    }
+}
+// 서버(GameModeBase)
+void ACXGameModeBase::PrintChatMessageString(ACXPlayerController* InChattingPlayerController, const FString& InChatMessageString)
+{
+    // ...
+    if (IsGuessNumberString(GuessNumberString) == true)
+    {
+        // 결과를 만들어낸 후
+        // 카운트는 여기서 뒤늦게 올라간다.
+        IncreaseGuessCount(InChattingPlayerController); 
+        
+        // 모든 클라이언트에게 카운팅이 잘못 된 결과값을 전송한다.
+    }
+}
+
+// ----------- 수정한 코드 -----------
+// 로컬(PlayerController)
+void ACXPlayerController::SetChatMessageString(const FString& InChatMessageString)
+{
+	ChatMessageString = InChatMessageString;
+
+	if (IsLocalController() == true)
+	{
+		// 카운팅이 안되는 현상 때문에 로컬에서는 순수 텍스트만 서버로 옮기게 수정!!! 
+		ServerRPCPrintChatMessageString(InChatMessageString);
+	}
+}
+
+// 서버(GameModeBase)
+void ACXGameModeBase::PrintChatMessageString(ACXPlayerController* InChattingPlayerController, const FString& InChatMessageString)
+{
+	// PlayerState 가져오기
+	ACXPlayerState* CXPS = InChattingPlayerController->GetPlayerState<ACXPlayerState>();
+	if (IsValid(CXPS) == false)
+	{
+		return;
+	}
+
+	// ...
+
+	if (IsGuessNumberString(GuessNumberString) == true)
+	{
+		// 카운트를 한 후 최신 플레이어 정보를 가져온다.
+		IncreaseGuessCount(InChattingPlayerController);
+		FString PlayerInfoString = CXPS->GetPlayerInfoString();
+		
+		// ...
+
+		// 서버에서 문자열 완성
+		FString CombinedMessageString = FString::Printf(TEXT("%s: %s -> %s"), *PlayerInfoString, *InChatMessageString, *JudgeResultString);
+		for (TActorIterator<ACXPlayerController> It(GetWorld()); It; ++It)
+		{
+			ACXPlayerController* CXPlayerController = *It;
+			if (IsValid(CXPlayerController) == true)
+			{
+				// 완성한 문자열 보내기
+				CXPlayerController->ClientRPCPrintChatMessageString(CombinedMessageString);
+				// ...
+			}
+		}
+	}
+	else
+	{
+		// 일반 채팅도 최신 카운트 정보 반영
+		FString PlayerInfoString = CXPS->GetPlayerInfoString();
+		FString CombinedMessageString = FString::Printf(TEXT("%s: %s"), *PlayerInfoString, *InChatMessageString);
+
+		// ...
+	}
+}
+```
+
+<br/>
+
+**ReplicatedUsing**   
+
+서버가 값을 바꿨을 때 클라이언트에서 특정 함수(OnRep_...)가 자동으로 실행되므로, UI 위젯의 텍스트를 즉각 갱신하기에 매우 좋다.   
+
+```cpp
+// ReplicatedUsing 예시
+public:
+    // 현재 턴을 진행 중인 플레이어의 컨트롤러 (누구 턴인지 판별용)
+    UPROPERTY(ReplicatedUsing = OnRep_CurrentTurnPlayer)
+    class ACXPlayerController* CurrentTurnPlayer;
+
+    // 현재 턴의 남은 시간 (초 단위)
+    UPROPERTY(ReplicatedUsing = OnRep_RemainingTime)
+    int32 RemainingTime;
+
+protected:
+    UFUNCTION()
+    void OnRep_CurrentTurnPlayer();
+
+    UFUNCTION()
+    void OnRep_RemainingTime();
+
+```
+
+
+<br/>
+
+플레이어의 턴이 맞지 않는 현상   
+
+턴을 저장하는 CurrentTurnPlayer가 로그인 전에 값을 넣으려고 해서 nullptr로 저장되는게 원인이었다.   
+
+그래서 먼저 로그인 된 컨트롤러에게 첫 턴을 넘겨주는 방식을 택했다.   
+
+```cpp
+void ACXGameModeBase::OnPostLogin(AController* NewPlayer)
+{
+	Super::OnPostLogin(NewPlayer);
+
+	ACXPlayerController* CXPlayerController = Cast<ACXPlayerController>(NewPlayer);
+	if (IsValid(CXPlayerController))
+	{
+		// ... 기존 로직 ...
+		AllPlayerControllers.Add(CXPlayerController);
+
+		// 방금 들어온 플레이어가 첫 번째 플레이어라면 바로 턴을 부여함
+		ACXGameStateBase* CXGS = GetGameState<ACXGameStateBase>();
+		if (IsValid(CXGS) && CXGS->CurrentTurnPlayer == nullptr)
+		{
+			CXGS->CurrentTurnPlayer = CXPlayerController;
+			StartTurnTimer();
+		}
+	}
+}
+```
+
+<br/>
 
 
   </p>
