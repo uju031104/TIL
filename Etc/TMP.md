@@ -8109,3 +8109,188 @@ void ACXGameModeBase::OnPostLogin(AController* NewPlayer)
 
   </p>
 </details>
+
+#### <!-- 26.06.16 -->
+<details> 
+  <summary>26.06.16</summary>
+  <p>
+
+에이타니   
+BT에서 Service 노드는 주기적으로 정보를 수집하고 Blackboard를 업데이트하는 역할을 하며 백그라운드에서 지속적으로 동작한다.   
+행동의 흐름에 영향을 끼치지 않는다.   
+영향을 끼치고 성공/실패를 반환하는건 Decorator이다.   
+
+AI Perception을 위한 컴포넌트 조합   
+AI Perception 시스템은 AI Controller에 AI Perception Component를 추가하고, 감지될 타겟(플레이어 등)에 AI Stimulus Component를 추가하여 구성한다.   
+
+<br/>
+
+**백트래킹 문제 풀이**   
+
+```cpp
+// leetcode 39번 Combination Sum
+class Solution {
+public:
+    vector<vector<int>> combinationSum(vector<int>& candidates, int target) {
+        vector<vector<int>> result;
+        vector<int> currentCombination;
+
+        sort(candidates.begin(), candidates.end());
+        backtrack(candidates, target, 0, currentCombination, result);
+
+        return result;
+    }
+
+private:
+    void backtrack(const vector<int>& candidates, int remainTarget, int start, vector<int>& current, vector<vector<int>>& result)
+    {
+        // 성공 조건: target을 정확히 채운 경우
+        if (remainTarget == 0) {
+            result.push_back(current);
+            return;
+        }
+
+        // 탐색 진행
+        for (int i = start; i < candidates.size(); ++i) {
+            // 가지치기: 현재 숫자가 남은 target보다 크다면, 
+            // 정렬되어 있으므로 이후의 숫자들도 모두 target보다 크다. 따라서 탐색 중단(break).
+            if (remainTarget - candidates[i] < 0) {
+                break;
+            }
+
+            // 1. 선택: 현재 숫자를 조합에 추가
+            current.push_back(candidates[i]);
+
+            // 2. 재귀 호출: 동일한 숫자를 또 쓸 수 있으므로 start 인덱스를 i로 넘김
+            backtrack(candidates, remainTarget - candidates[i], i, current, result);
+
+            // 3. 복원(백트래킹): 다음 경우의 수를 위해 넣었던 숫자를 다시 빼줌
+            current.pop_back();
+        }
+    }
+};
+```
+
+<br/>
+
+```cpp
+// leetcode 51번 4-Queen 문제
+class Solution {
+public:
+    vector<vector<string>> solveNQueens(int n) {
+        vector<vector<string>> result;
+        // 빈 체스판 초기화 (모두 '.'으로 채움)
+        vector<string> board(n, string(n, '.'));
+
+        // 공격 경로 체크용 플래그 배열 (체크 속도 최적화)
+        vector<bool> cols(n, false);
+        vector<bool> diag1(2 * n - 1, false); // / 방향 대각선
+        vector<bool> diag2(2 * n - 1, false); // \ 방향 대각선
+
+        // 0번 행부터 백트래킹 시작
+        backtrack(0, n, board, cols, diag1, diag2, result);
+
+        return result;
+    }
+
+private:
+    void backtrack(int row, int n, vector<string>& board, vector<bool>& cols, vector<bool>& diag1, vector<bool>& diag2, vector<vector<string>>& result) {
+        
+        // 성공 조건: 모든 행에 퀸을 배치 완료한 경우
+        if (row == n) {
+            result.push_back(board);
+            return;
+        }
+
+        // 현재 행(row)에서 각 열(col)을 하나씩 시도
+        for (int col = 0; col < n; ++col) {
+            int d1 = row + col;
+            int d2 = row - col + n - 1;
+
+            // 가지치기: 현재 자리가 공격 경로 상에 있다면 놓지 못하고 패스
+            if (cols[col] || diag1[d1] || diag2[d2]) {
+                continue;
+            }
+
+            // 1. 선택: 퀸 배치 및 공격 경로 마킹
+            board[row][col] = 'Q';
+            cols[col] = diag1[d1] = diag2[d2] = true;
+
+            // 2. 재귀 호출: 다음 행으로 이동
+            backtrack(row + 1, n, board, cols, diag1, diag2, result);
+
+            // 3. 복원(백트래킹): 다음 경우의 수를 위해 퀸을 치우고 마킹 해제
+            board[row][col] = '.';
+            cols[col] = diag1[d1] = diag2[d2] = false;
+        }
+    }
+};
+```
+
+<br/>
+
+**Greedy 알고리즘 관련 문제**
+
+```cpp
+// leetcode 455번 Assign Cookies
+class Solution {
+public:
+    int findContentChildren(vector<int>& g, vector<int>& s) {
+        sort(g.begin(), g.end());
+        sort(s.begin(), s.end());
+
+        int g_index = 0;
+        int s_index = 0;
+
+        while(g_index < g.size() && s_index < s.size())
+        {
+            if(g[g_index] <= s[s_index])
+            {
+                g_index++;
+            }
+            s_index++;
+        }
+
+        return g_index;
+    }
+};
+```
+
+<br/>
+
+```cpp
+// leetcode 134번 Gas Station
+class Solution {
+public:
+    int canCompleteCircuit(vector<int>& gas, vector<int>& cost) {
+        int total_tank = 0;   // 전체 주유량 - 전체 소모량
+        int current_tank = 0; // 현재 시작점부터 누적된 가솔린 잔여량
+        int start_index = 0;  // 가정하는 시작 주유소 위치
+
+        for (int i = 0; i < gas.size(); ++i) {
+            int fuel_gain = gas[i] - cost[i];
+            total_tank += fuel_gain;
+            current_tank += fuel_gain;
+
+            // 만약 현재까지 모은 기름으로 다음 주유소로 갈 수 없다면 (기름 바닥)
+            if (current_tank < 0) {
+                // i번까지의 주유소는 전부 시작점이 될 수 없음.
+                // 다음 주유소인 i + 1을 새로운 시작점으로 가정하고 탱크를 비운다.
+                start_index = i + 1;
+                current_tank = 0;
+            }
+        }
+
+        // 전체 한 바퀴를 돌았을 때 total_tank가 음수라면 완주할 기름이 부족
+        if (total_tank < 0) {
+            return -1;
+        }
+
+        // 그것이 아니라면 마지막으로 살아남은 start_index가 유일한 정답
+        return start_index;
+    }
+};
+```
+
+  </p>
+</details>
