@@ -8294,3 +8294,195 @@ public:
 
   </p>
 </details>
+
+#### <!-- 26.06.17 -->
+<details> 
+  <summary>26.06.17</summary>
+  <p>
+
+에이타니   
+
+`Spawn System Attached` 노드는 `Niagara` 파티클 시스템을 특정 컴포넌트(예: 스켈레탈 메시, 무기 등)에 부착하여 생성하며, 생성과 동시에 자동으로 활성화되어 재생된다. 이는 발사 효과, 충돌 효과 등 특정 위치나 오브젝트에 파티클을 부착해야 할 때 가장 일반적으로 사용되는 방법이다.   
+
+유한 상태 머신(`FSM, Finite State Machine`)은 유한한 개수의 상태(State)를 가지며, 특정 시점에 하나의 상태만 활성화된다. 특정 조건(`Transition Condition`)이 만족되면 다른 상태로 전이된다.   
+
+허브(`Hub`)는 물리 계층(`Layer 1`)에서 동작하는 가장 단순한 네트워크 장비로, 수신한 신호를 모든 포트로 `단순히 복제`하여 전송하는 역할만 한다.   
+
+라우터(`Router`)는 네트워크 계층(`Layer 3`)에서 동작하며, 서로 다른 네트워크(예: LAN과 WAN) 간의 데이터 패킷을 `IP 주소`를 기반으로 최적의 경로로 전달하는 역할을 한다.   
+
+스위치(`Switch`)는 데이터 링크 계층(`Layer 2`)에서 동작하며, 동일 네트워크 내에서 `MAC 주소를 기반`으로 데이터 프레임을 목적지 장치로만 전송하여 네트워크 효율성을 높인다.   
+
+모뎀(`Modem`)은 변조(`Modulation`)와 복조(`Demodulation`)를 수행하여 컴퓨터의 디지털 신호를 전화선이나 케이블을 통해 전송 가능한 아날로그 신호로 `변환`하거나 그 반대 과정을 담당한다.   
+
+<br/>
+
+동적계획법((Dynamic Programming, DP)   
+
+```cpp
+// leetCode 198번 House Robber
+// 점화식: dp[i] = max(dp[i - 1], dp[i - 2] + nums[i])
+
+#include <vector>
+#include <algorithm>
+
+class Solution {
+public:
+    int rob(vector<int>& nums) {
+        int n = nums.size();
+        
+        // 집이 없는 경우와 1개만 있는 경우
+        if (n == 0) return 0;
+        if (n == 1) return nums[0];
+
+        // 각 집까지의 최대 금액을 저장할 DP 테이블 생성
+        vector<int> dp(n, 0);
+
+        // 초기 상태 설정 (Base Cases)
+        dp[0] = nums[0];
+        dp[1] = max(nums[0], nums[1]);
+
+        // 3번째 집(인덱스 2)부터 끝까지 점화식 적용
+        for (int i = 2; i < n; ++i) {
+            // dp[i] = max(직전 집을 털고 이번 집은 건너뛰기, 전전 집까지 털고 이번 집도 털기)
+            dp[i] = max(dp[i - 1], dp[i - 2] + nums[i]);
+        }
+        
+        // 맨 마지막 집까지 고려했을 때의 최댓값 반환
+        return dp[n - 1];
+	}
+};
+
+
+// 더 깔끔한 방식
+class Solution {
+public:
+    int rob(vector<int>& nums) {
+        int prev2 = 0; // dp[i-2] 역할 (전전 집까지의 최댓값)
+        int prev1 = 0; // dp[i-1] 역할 (직전 집까지의 최댓값)
+        
+        // C++의 범위 기반 for 루프(Range-based for loop) 활용
+        for (int money : nums) {
+            // 현재 집을 고려했을 때의 최댓값 계산
+            int current = max(prev1, prev2 + money);
+            
+            // 다음 집으로 이동하기 위해 이전 값들을 한 칸씩 밀어줌 (Slide)
+            prev2 = prev1;
+            prev1 = current;
+        }
+        
+        return prev1;
+    }
+};
+```
+
+<br/>
+
+```cpp
+// leetCode 64번 Minimum Path Sum
+// 점화식: dp[i][j] = min(dp[i - 1][j], dp[i][j - 1]) + grid[i][j]
+
+class Solution {
+public:
+    int minPathSum(vector<vector<int>>& grid) {
+        int m = grid.size();
+        int n = grid[0].size();
+        
+        // m x n 크기의 DP 테이블을 0으로 초기화
+        vector<vector<int>> dp(m, vector<int>(n, 0));
+        
+        // 시작점 초기화
+        dp[0][0] = grid[0][0]; 
+        
+        // 맨 윗줄 초기화 (오직 왼쪽에서만 올 수 있음)
+        for (int j = 1; j < n; ++j) {
+            dp[0][j] = dp[0][j - 1] + grid[0][j];
+        }
+        
+        // 맨 왼쪽 줄 초기화 (오직 위에서만 올 수 있음)
+        for (int i = 1; i < m; ++i) {
+            dp[i][0] = dp[i - 1][0] + grid[i][0];
+        }
+        
+        // 나머지 칸들 채우기
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                // 위쪽 칸과 왼쪽 칸 중 더 작은 값 + 현재 칸의 숫자
+                dp[i][j] = min(dp[i - 1][j], dp[i][j - 1]) + grid[i][j];
+            }
+        }
+        
+        // 우측 하단 도착점의 결과 반환
+        return dp[m - 1][n - 1];
+    }
+};
+
+// 새로운 배열을 만들지 않고 바로 덮어쓰는 방식
+class Solution {
+public:
+    int minPathSum(vector<vector<int>>& grid) {
+        int m = grid.size();
+        int n = grid[0].size();
+        
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                // 시작점은 건너뜀
+                if (i == 0 && j == 0) continue;
+                
+                if (i == 0) {
+                    // 맨 윗줄인 경우: 왼쪽 칸의 누적합을 더함
+                    grid[i][j] += grid[i][j - 1];
+                } else if (j == 0) {
+                    // 맨 왼쪽 줄인 경우: 위쪽 칸의 누적합을 더함
+                    grid[i][j] += grid[i - 1][j];
+                } else {
+                    // 일반적인 경우: 위쪽과 왼쪽 중 최소값 + 현재 값
+                    grid[i][j] += min(grid[i - 1][j], grid[i][j - 1]);
+                }
+            }
+        }
+        
+        return grid[m - 1][n - 1];
+    }
+};
+```
+
+<br/>
+
+```cpp
+// leetCode 416번 Partition Equal Subset Sum
+class Solution {
+public:
+    bool canPartition(vector<int>& nums) {
+        // 전체 합 계산 (std::accumulate는 배열의 총합을 구할 때 유용), #include <numeric> 헤더 필요!
+        int totalSum = accumulate(nums.begin(), nums.end(), 0);
+        
+        // 총합이 홀수면 반으로 똑같이 나눌 수 없음
+        if (totalSum % 2 != 0) return false;
+        
+        int target = totalSum / 2;
+        
+        // dp[i]는 합 i를 만들 수 있는지 여부를 저장 (초기값은 모두 false)
+        vector<bool> dp(target + 1, false);
+        dp[0] = true; // 합 0은 언제나 가능
+        
+        // 0-1 배낭 문제 로직 수행
+        for (int num : nums) {
+            // 중요: 역순(target부터 num까지)으로 탐색해야 
+            // 현재 루프에서 같은 숫자가 중복으로 사용되는 것을 막을 수 있음.
+            for (int j = target; j >= num; --j) {
+                if (dp[j - num]) {
+                    dp[j] = true;
+                }
+            }
+            
+            // 최적화: 만약 이미 target을 만들 수 있다면 조기 종료
+            if (dp[target]) return true;
+        }
+        
+        return dp[target];
+    }
+};
+```
+
+  </p>
+</details>
