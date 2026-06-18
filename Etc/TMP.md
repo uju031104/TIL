@@ -8486,3 +8486,213 @@ public:
 
   </p>
 </details>
+
+#### <!-- 26.06.18 -->
+<details> 
+  <summary>26.06.18</summary>
+  <p>
+
+에이타니   
+
+**블루프린트 통신 방식**   
+`Direct Reference`는 통신할 대상을 미리 알고 직접 참조하는 방식이다. 따라서 동적으로 생성되는 액터와의 통신에는 적합하지 않다. 동적 생성 액터와의 통신에는 `Cast`나 `Interface` 방식이 더 적합하다.   
+성능이 가장 빠르고, 직접 참조하여 접근하며, 참조 대상을 미리 알아야 한다.   
+
+`Cast`는 타입 변환 과정에서 오버헤드가 발생하며, 과도하게 사용하면 성능 저하와 메모리 관리 문제를 야기할 수 있다.   
+`Cast`는 실패할 수 있으므로 항상 실패 처리를 고려해야 하고, 단일 대상에게만 통신하며, 통신할 대상의 참조가 필요하다.   
+
+`Event Dispatcher`는 일대다(One-to-Many) 통신을 위한 방식으로, 하나의 이벤트가 발생했을 때 여러 리스너에게 동시에 알림을 보낼 수 있다. `옵저버 패턴`을 구현한 것으로, 여러 객체가 특정 이벤트를 `구독(Bind)`하고 해당 이벤트 발생 시 모두 알림을 받는다. 타입에 제한이 없고, 여러 리스너 바인딩이 가능하며, `Direct Reference`보다는 오버헤드가 있습니다.   
+
+`Blueprint Interface`의 핵심 장점은 상속 관계가 없는 서로 다른 클래스들이 같은 인터페이스를 구현하여 일관된 방식으로 통신할 수 있다는 것이다. 이는 다형성을 제공하고 결합도를 낮춘다. `Interface`는 `Cast`와 유사한 성능을 가지며, 각 클래스에서 직접 구현해야 하고, 함수 호출만 가능하며 변수 직접 접근은 불가능하다.   
+
+<br/>
+
+**Race Condition**   
+
+이전에 잠깐 키워드만 확인했던 `Race Condition`에 대해서 다시 알아봤다.   
+
+멀티스레드나 멀티프로세스 환경에서 여러 개의 프로세스/스레드가 하나의 공유 자원에 동시에 접근해 쓰기(Write) 작업을 하려고 할 때, 접근 타이밍이나 실행 순서에 따라 결과가 달라지는 현상이다.   
+
+**Race Condition이 발생하는 예시**   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <vector>
+
+int shared_counter = 0; // 공유 자원
+
+void increase_counter() {
+    for (int i = 0; i < 100000; ++i) {
+        shared_counter++; // 임계 구역 (Critical Section)
+    }
+}
+
+int main() {
+    // 2개의 스레드가 동시에 같은 함수를 실행
+    std::thread t1(increase_counter);
+    std::thread t2(increase_counter);
+
+    t1.join();
+    t2.join();
+
+    // 기대 결과: 200000
+    // 실제 결과: 134232, 189431 등 실행할 때마다 엉뚱한 값이 나옴 (Race Condition)
+    std::cout << "최종 결과: " << shared_counter << std::endl;
+    return 0;
+}
+```
+
+`shared_counter++`는 한 줄짜리 코드 같지만, CPU 레벨에서는 1) 값을 읽고, 2) 1을 더하고, 3) 다시 저장하는 3단계로 나뉜다. 스레드 1이 값을 더하기 전에 스레드 2가 옛날 값을 읽어가 버리기 때문에 데이터가 누락되는 것   
+
+<br/>
+
+**해결방법**   
+
+**1.`std::mutex` 키워드 사용**   
+
+`lock()`, `unlock()`을 사용해서 직접 열고 닫으면 `데드락(Dead Lock)`이 발생할 수 있기 때문에 `RAII(Resource Acquisition Is Information)`를 따르는 `lock_guard`나 `unique_lock`키워드를 사용하는게 좋다.   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <mutex>
+
+int shared_counter = 0;
+std::mutex mtx; // 자물쇠 역할을 할 뮤텍스 객체
+
+void increase_counter() {
+    for (int i = 0; i < 100000; ++i) {
+        // 객체가 생성될 때 자동으로 mtx.lock()을 호출합니다.
+        std::lock_guard<std::mutex> lock(mtx); 
+        
+        shared_counter++; 
+        
+        // 함수 블록(스코프)을 벗어나면 lock 객체가 소멸하면서 자동으로 mtx.unlock()이 호출됩니다.
+    }
+}
+
+int main() {
+    std::thread t1(increase_counter);
+    std::thread t2(increase_counter);
+    t1.join(); t2.join();
+
+    std::cout << "최종 결과 (Mutex): " << shared_counter << std::endl; // 항상 200000 보장
+    return 0;
+}
+```
+   
+<br/>
+
+**2.`std::atomic` 키워드 사용**   
+
+단순한 덧셈/뺄셈 같은 가벼운 연산 때문에 무거운 뮤텍스(컨텍스트 스위칭 비용 발생)를 쓰는 것은 비효율적이다.   
+C++11부터는 CPU의 원자적 연산 명령어를 직접 사용하는 std::atomic 타입을 제공한다.   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <atomic> // 원자적 연산을 위한 헤더
+
+std::atomic<int> shared_counter(0); // 원자적 변수로 선언(0으로 초기화)
+
+void increase_counter() {
+    for (int i = 0; i < 100000; ++i) {
+        // CPU 레벨에서 쪼개지지 않는 하나의 연산(Atomic)으로 처리됩니다.
+        shared_counter++; 
+    }
+}
+
+int main() {
+    std::thread t1(increase_counter);
+    std::thread t2(increase_counter);
+    t1.join(); t2.join();
+
+    std::cout << "최종 결과 (Atomic): " << shared_counter << std::endl; // 항상 200000 보장
+    return 0;
+}
+```
+
+락을 걸지 않기 때문에(Lock-free) 뮤텍스보다 압도적으로 빠르다. 다만, 복잡한 로직이나 여러 줄의 코드 블록을 보호할 때는 사용할 수 없고, 단일 변수 연산에만 유효하다.   
+
+<br/>
+
+**3.`std::counting_semaphore` (C++20 표준 세마포어)**   
+
+특정 자원의 개수를 제한하거나 스레드 간의 신호(Signal)를 주고받을 때는 C++20에 정식 도입된 세마포어를 사용한다.   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <semaphore> // C++20 표준 세마포어
+
+int shared_counter = 0;
+// 허용 개수를 1로 설정 (바이너리 세마포어처럼 동작)
+std::counting_semaphore<1> sem(1); 
+
+void increase_counter() {
+    for (int i = 0; i < 100000; ++i) {
+        sem.acquire(); // 카운트를 1 줄임 (0이 되면 다른 스레드는 대기)
+        
+        shared_counter++;
+        
+        sem.release(); // 카운트를 1 늘림 (대기 중인 다른 스레드가 깨어남)
+    }
+}
+
+int main() {
+    std::thread t1(increase_counter);
+    std::thread t2(increase_counter);
+    t1.join(); t2.join();
+
+    std::cout << "최종 결과 (Semaphore): " << shared_counter << std::endl; // 항상 200000 보장
+    return 0;
+}
+```
+
+<br/>
+
+**임계 구역(Critical Section)**   
+
+임계 구역(`Critical Section`)은 쉽게 말해 "여러 스레드가 동시에 접근하면 난리가 나는 공유 자원(변수, 파일 등)을 다루는 코드 영역"을 말한다.    
+멀티스레드 프로그램에서 스레드들은 각자의 스택 메모리를 가지고 있지만, 나머지는 공유해서 쓴다. 이때 나머지(힙, 코드, 데이터) 영역을 동시에 접근하면 문제가 생기는데 이 부분을 임계 구역이라고 한다.   
+
+<br/>
+
+**임계 구역을 다룰 때의 3대 원칙**   
+OS 이론에서는 임계 구역을 안전하게 보호하기 위해 아래 3가지 조건이 반드시 만족되어야 한다고 말한다.   
+
+상호 배제(`Mutual Exclusion`): 어떤 스레드가 임계 구역을 실행 중이면, 다른 스레드는 절대 들어올 수 없다. (뮤텍스, 세마포어가 해주는 일)   
+
+진행(`Progress`): 임계 구역에 아무도 없다면, 들어가고자 하는 스레드는 바로 들어갈 수 있어야 한다. (아무도 없는데 막히면 안 됨)   
+
+한정 대기(`Bounded Waiting`): 어떤 스레드가 임계 구역에 들어가려고 대기할 때, 무한정 기다려서는 안 된다. (언젠가는 차례가 와야 함)   
+
+<br/>
+
+`CRITICAL_SECTION` 과 `Mutex`의 비교   
+
+`CRITICAL_SECTION`은 유저 모드(User Mode)에서 동작하므로 모드 전환이 이뤄지지 않아서 빠르다. 단점은 하나의 프로세스 내에 있는 스레드끼리만 가능하다는 점이다.   
+
+`Mutex`는 커널 모드(Kernel Mode)에서 동작하고 이름을 붙일 수 있어서 서로 다른 프로세스끼리도 동기화가 가능하다. 단점으로는 모드를 바꿔야하기 때문에 비용이 든다.   
+
+<br/>
+
+**데드락(Deadlock)이 발생하는 4가지 조건**   
+-> `Coffman conditions`(코프만 조건)이라고도 한다.   
+
+상호 배제 (Mutual Exclusion)   
+자원은 한 번에 한 스레드만 사용할 수 있어야한다.   
+
+점유와 대기 (Hold and Wait)   
+스레드가 최소한 하나의 자원을 움켜쥔 채(Hold), 다른 스레드가 가진 자원을 추가로 얻으려고 기다리는(Wait) 상태여야 한다.   
+
+비선점 (No Preemption)   
+다른 스레드가 가진 자원을 강제로 빼앗을 수 없어야 한다.   
+
+순환 대기 (Circular Wait)   
+대기하고 있는 스레드들의 관계가 둥글게 원(Cycle)을 그리며 서로를 기다려야 한다.   
+
+
+  </p>
+</details>
