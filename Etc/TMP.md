@@ -8696,3 +8696,170 @@ OS 이론에서는 임계 구역을 안전하게 보호하기 위해 아래 3가
 
   </p>
 </details>
+
+#### <!-- 26.06.19 -->
+<details> 
+  <summary>26.06.19</summary>
+  <p>
+
+에이타니   
+
+`XR 콘텐츠`의 입력 시스템은 물리적 컨트롤러뿐만 아니라 핸드트래킹, 시선 추적, 음성 인식 등 다양한 입력 방식을 지원한다. 입력 구조는 일반적으로 입력 장치로부터 데이터를 수집하는 입력 계층, 데이터를 해석하고 처리하는 논리 계층, 그리고 게임 로직에 전달하는 이벤트 시스템으로 구성된다.   
+
+`핸드트래킹`은 주로 적외선 LED와 카메라를 사용한 광학 추적 방식으로 작동한다. 적외선 LED가 손을 비추면 카메라가 반사된 빛을 감지하여 손의 형태와 위치를 3D로 재구성한다.   
+
+<br/>
+
+**Attribute**   
+
+```cpp
+// GAS_AttributeSetBase.h
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "AttributeSet.h"
+#include "AbilitySystemComponent.h"
+#include "GAS_AttributeSetBase.generated.h"
+
+#define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \
+GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
+
+UCLASS()
+class SPARTAMASTERGAS_API UGAS_AttributeSetBase : public UAttributeSet
+{
+	GENERATED_BODY()
+	
+public:
+	UGAS_AttributeSetBase();
+	
+	ATTRIBUTE_ACCESSORS(UGAS_AttributeSetBase, Hp);
+	ATTRIBUTE_ACCESSORS(UGAS_AttributeSetBase, MaxHp);
+	ATTRIBUTE_ACCESSORS(UGAS_AttributeSetBase, Stamina);
+	ATTRIBUTE_ACCESSORS(UGAS_AttributeSetBase, MaxStamina);
+	
+	// 밑에 함수 순서대로 실행됨
+	// 명령을 받은 직후 // 필터링
+	// 무적상태
+	// 데미지 튕김
+	// ...
+	virtual bool PreGameplayEffectExecute(struct FGameplayEffectModCallbackData &Data) override;
+	
+	// 값이 바뀌기 전 호출 // 필터링
+	// 체력이 maxHp를 넘지 못하게 막을 때
+	// 체력이 0 밑으로 내려가지 않게 막을 때
+	// 이동 속도가 너무 빨라지지않게
+	// ...
+	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	
+	// 값이 바뀐 후 호출
+	// 피가 깎였으니까 UI 체력바를 갱신해라
+	// 피가 깎였으니 사운드를 재생해라
+	// 특정 스탯이 변했으니까 캐릭터 외형을 바꿔라
+	// ...
+	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
+	
+	// 명령을 수행하고 난 후 // 이펙트 처리가 완전 끝난 후 실행
+	// 매개변수에 Data는 사망판정과 함께 넘어오는 데이터들을 넣어줄 수 있다.
+	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData &Data) override;
+	
+private:
+	UPROPERTY()
+	FGameplayAttributeData Hp;
+	UPROPERTY()
+	FGameplayAttributeData MaxHp;
+	UPROPERTY()
+	FGameplayAttributeData Stamina;
+	UPROPERTY()
+	FGameplayAttributeData MaxStamina;
+};
+
+// GAS_AttributeSetBase.cpp
+
+#include "AttributeSet/GAS_AttributeSetBase.h"
+
+UGAS_AttributeSetBase::UGAS_AttributeSetBase()
+{
+	// 초기화 부분만 이렇게 써야한다. 게임 도중엔 절대 이렇게 쓰면 안됨!!!(GameplayEffect에서 바꿔줌)
+	InitHp(100.f);
+	InitMaxHp(100.f);
+	InitStamina(100.f);
+	InitMaxStamina(100.f);
+	
+	// HP 가져오기
+	// GetHp();
+	
+	// HP 변경하기
+	// SetHp();
+	
+	// HP 포인터
+	// GetHpAttribute();
+}
+
+bool UGAS_AttributeSetBase::PreGameplayEffectExecute(struct FGameplayEffectModCallbackData& Data)
+{
+	Super::PreGameplayEffectExecute(Data);
+	
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PreGameplayEffectExecute"));
+	
+	return true;
+}
+
+void UGAS_AttributeSetBase::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
+	
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PreAttributeChange"));
+}
+
+void UGAS_AttributeSetBase::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+	
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PostAttributeChange"));
+}
+
+void UGAS_AttributeSetBase::PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data)
+{
+	Super::PostGameplayEffectExecute(Data);
+	
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PostGameplayEffectExecute"));
+}
+```
+
+<br/>
+
+**Character에서 SetHp 사용해보기**   
+
+```cpp
+// Character.h에 추가
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
+	TObjectPtr<class UGAS_AttributeSetBase> AttributeSet;
+	
+	UFUNCTION(BlueprintCallable)
+	void ApplyDamage(float DamageAmount);
+
+
+// Character.cpp에 추가
+void AGAS_CharacterBase::ApplyDamage(float DamageAmount)
+{
+	float NewHp = AttributeSet->GetHp() - DamageAmount;
+	AttributeSet->SetHp(NewHp);
+}
+
+UAbilitySystemComponent* AGAS_CharacterBase::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
+}
+```
+
+TriggerBox 만들고 선택한 상태에서 레벨 블루프린트로 가서 ApplyDamage(내가 만든 함수 불러와야함) 불러와서 테스트 해보면 실행된다.   
+SetHp를 사용했기 때문에 GAS의 반만 사용하는 느낌이다.   
+디버깅하면 `PreAttributeChange`, `PostAttributeChange`만 호출됨..!
+
+  </p>
+</details>
