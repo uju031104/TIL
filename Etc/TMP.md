@@ -8996,7 +8996,55 @@ OS는 하드디스크(SSD)의 스왑 영역에서 필요한 데이터를 찾아 
 **Private Dependency**   
 소스(.cpp) 파일에서만 사용하는 모듈   
 
+  </p>
+</details>
 
+#### <!-- 26.06.25 -->
+<details> 
+  <summary>26.06.25</summary>
+  <p>
+
+에이타니   
+
+멀티플레이어 게임에서 클라이언트의 요청을 서버가 검증하고 모든 클라이언트에 전파하는 일반적인 패턴은 다음과 같다   
+
+`Client → Server RPC`: 클라이언트가 `UFUNCTION(Server, Reliable, WithValidation)`으로 선언된 함수를 호출하여 서버에 요청을 보낸다.   
+
+`Server_Validate`: 서버에서 요청의 유효성을 검증한다. 치팅 방지를 위해 필수적이다.   
+
+`Server_Implementation`: 검증이 통과되면 실제 로직이 실행된다.   
+
+`NetMulticast`: 서버에서 모든 클라이언트에게 결과를 전파하기 위해 `UFUNCTION(NetMulticast, Reliable)` 함수를 호출한다.   
+
+`RPC`는 네트워크 통신을 사용하기 때문에 네트워크 지연의 영향을 받으며, `Unreliable`로 설정된 경우 신뢰성이 보장되지 않는다.   
+
+
+
+
+<br/>
+
+화요일에 이어서 가상메모리에서의 페이지 폴트 관련해서 더 알아봤다.   
+
+운영체제는 프로그램을 일정한 크기의 조각인 페이지로 나누어 필요한 부분만 RAM에 올리는 `Demand Paging` 방식을 사용합니다.
+RAM에 올라와 있는 페이지 조각을 `프레임(Frame)`이라고 하고 이를 페이지 `테이블(Page Table)`에 기록해둡니다.   
+
+프로세스를 실행할 때 CPU는 `MMU(Memory Management Unit)`에 Virtual Address를 요청하고 `TLB(Translation Lookaside Buffer)`에서 물리주소를 알아내고 RAM으로 이동합니다.   
+이때, 물리메모리가 존재하지 않으면 `Page Fault`라는 `Interrput`를 발생시키고 OS는 저장장치에서 Page를 찾아서 RAM에 업로드를 하고 CPU는 다시 Virtual Address 요청을 합니다.   
+
+인터럽트   
+CPU 내부에서 급하게 처리해야 하는 일이 발생하면, 현재 하던 일을 잠깐 멈추고 그 급한 일부터 처리하도록 하는 메커니즘   
+
+**인터럽트 처리 과정**   
+
+현재 상태 저장   
+CPU는 하던 일을 멈추기 직전, 나중에 돌아와서 다시 이어서 할 수 있도록 현재 CPU 레지스터 값들과 프로그램 카운터(PC) 위치를 메모리의 스택(Stack) 공간에 안전하게 저장합니다.   
+인터럽트 벡터(Interrupt Vector) 확인   
+CPU는 발생한 인터럽트의 번호(ID)를 확인합니다. 그리고 메모리 한구석에 있는 '인터럽트 벡터 테이블'을 봐서, 이 번호일 때는 어떤 코드를 실행해야 하는지 주소를 찾습니다.   
+인터럽트 서비스 루틴(ISR) 실행   
+인터럽트를 해결하기 위해 OS가 미리 준비해 둔 함수(코드)인 ISR(Interrupt Service Routine) 또는 인터럽트 핸들러를 실행합니다.   
+
+페이지 폴트라면? 디스크에서 페이지를 RAM으로 올려주는 ISR이 실행됩니다.   
+처리가 끝나면, 아까 스택에 저장해 두었던 이전 상태를 CPU 레지스터에 복구하고, 멈췄던 원래 프로그램의 위치로 돌아가서 실행을 재개합니다.   
 
   </p>
 </details>
