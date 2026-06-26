@@ -9048,3 +9048,53 @@ CPU는 발생한 인터럽트의 번호(ID)를 확인합니다. 그리고 메모
 
   </p>
 </details>
+
+#### <!-- 26.06.26 -->
+<details> 
+  <summary>26.06.26</summary>
+  <p>
+
+GAS 일부 정리   
+
+Gameplay Effect BP 설정에서
+
+중첩없는 즉발
+Instant
+
+쿨타임
+Has Duration
+Scalable Float Magnitude에 쿨타임 초 입력
+
+Aggregate by Target
+내 캐릭터 기준으로 Stack Limit Count
+Stack Limit Count가 2면 적이 아무리 많아도
+내 캐릭터는 최대 2중첩만 받음
+
+Aggregate by Source
+적 캐릭터 기준으로 Stack Limit Count
+Stack Limit Count가 2고 적이 4마리면
+플레이어는 8중첩을 받음
+
+10초동안 3초마다 한 번씩 데미지가 들어오는 점화 예시
+Stack Duration Refresh Policy
+10초를 리프레시해서 10초로 다시 만듦
+
+Stack Period Reset Policy
+3초 카운팅을 하는걸 초기화 함 (1초.. 2초.. 이때 초기화하면 다시 1초부터 시작해서 점화 데미지가 늦게 들어오게 됨) 
+
+
+디버깅 하는 법
+Stamina에 변수이름
+AbilitySystem.DebugAttribute Stamina
+
+GE 디테일에서
+Execute Periodic Effect on Application 체크 해제하면 첫 데미지 안들어감
+
+GA에서
+Wait Target Data를 Event ActivateAbility랑 연결하고
+Confirmed로 Type을 User Confirmed로 설정하면 롤 스킬 스마트키 안한 상태(범위 보여주고 누르면 실행) 됨   
+
+
+
+  </p>
+</details>
