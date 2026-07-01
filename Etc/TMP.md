@@ -9314,8 +9314,6 @@ if (AbilitySystemComponent)
 
 `BindAbilityActivationToInputComponent` 시스템을 사용하면, 내가 로컬에서 마우스를 누르고 뗐다는 신호가 내부적으로 서버(Server)까지 자동으로 리플리케이션(전달)된다. 그렇기 때문에 C++ 내부의 `WaitInputRelease` 태스크가 멀티플레이어 환경에서도 클라/서버 양쪽에서 완벽하게 싱크가 맞아떨어지며 작동할 수 있는 것이다.   
 
-
-
 <br/>
 
 **오늘 GAS를 사용하면서 느낀 부분**   
@@ -9327,9 +9325,119 @@ if (AbilitySystemComponent)
 WaitInputRelease Task -> OnInputReleased 순으로 진행된다.   
 오늘 구현한 마우스를 누르는 순간 시간을 기록하고 마우스 떼는 Input을 기다리다가 떼는 순간 콜백함수를 호출하는 형식인것이다.   
 
+  </p>
+</details>
+
+#### <!-- 26.07.01 -->
+<details> 
+  <summary>26.07.01</summary>
+  <p>
+
+에이타니   
+
+**BT의 Service**   
+Service는 Task와 달리 Success/Failure 같은 실행 결과를 반환하지 않는다. Service는 백그라운드에서 주기적으로 실행되며, 주로 Blackboard 값을 업데이트하거나 환경을 감지하는 역할을 한다. 트리의 흐름 제어는 Task, Decorator, Composite 노드의 역할이다.   
+
+**GetStaticDescription**   
+UBTNode에서 부가적인 설명을 텍스트로 노출할 수 있도록 도와주는 가상함수   
+매개변수가 없고 고정된 프로퍼티 상태 표시   
+
+이 함수를 오버라이드하여 FString을 반환하면, 해당 문자열이 에디터 화면의 노드 하단에 상시 표시되므로, 어떤 Blackboard 키가 연결되어 있는지 쉽게 파악할 수 있어 상황별 행동 설계와 디버깅 효율이 크게 향상된다.   
+
+**GetRuntimeDescription**   
+공유 인스턴스 환경에서 런타임 시 특정 AI 에이전트만의 고유 메모리 상태(예: 개별 진행률)를 노출하고 싶을 때 사용한다.   
+
+<br/>
+
+**AI Perception 시스템**   
+
+1. AI Controller에 AI Perception Component 추가   
+2. AIPerceptionComponent에 AISenseConfig_Sight를 추가하고 감지 반경, 시야각, 감지 팀 등을 설정   
+3. On Target Perception Updated 이벤트 바인딩   
+
+<br/>
+
+**AI Perception 시스템에서의 청각 감지**   
+AI Perception 시스템에서 청각 감지를 위해서는 소리를 발생시키는 액터에서 MakeNoise() 함수를 호출해야한다.   
+이 함수는 Pawn Controller를 통해 소리 이벤트를 생성하고, AIPerceptionComponent의 AISenseConfig_Hearing이 이를 감지할 수 있게 한다.   
+
+우리가 보통 알고 있는 PlaySound()는 그냥 소리만 재생할뿐 AI와 상관이 없다.   
+
+<br/>
+
+---
+
+<br/>
+
+GAS를 사용하는 캐릭터에서 Montage를 플레이하려는데 GA에서 AnimNotify를 불러올 수 없는 문제가 있었다.   
+
+찾아보니 AbilityTask를 사용해서 몽타주를 실행시켜줘야했다.   
+
+`AbilityTask_PlayMontageAndWaitForEvent`를 사용하라고 나와서 사용해보려고 했더니 이 Task는 UE5에서 기본으로 제공하는 기능이 아니라 에픽게임즈 공식샘플에 있는 커스텀 Task라고 한다.   
+
+위 커스텀 Task는 `PlayMontageAndWait`과 `WaitGameplayEvent`의 기능을 제공한다고 보면 된다.   
+그래서 나는 일단 커스텀 Task가 아닌 위 두가지를 사용하여 구현해보려고 한다.   
+
+```cpp
+// 2가지 기능을 사용하기위한 헤더들
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+
+// 몽타주를 재생하고
+UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		   this,
+		   NAME_None, 
+		   MontageToPlay, 
+		   1.0f, 
+		   NAME_None, 
+		   true
+		);
 
 
+// 태그 이벤트를 기다리는 Task를 만들고
+		UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+		   this, 
+		   MyAbilityTag,     // 에디터에서 설정한 GA_SG_Kick의 Tag
+		   nullptr,          // Optional External Optional Actor
+		   false             // bOnlyTriggerOnce (한 번만 트리거할지 여부)
+		);
 
+// 조건에 맞으면 실행
+if (WaitEventTask)
+		{
+			// 이벤트가 들어오면 실행할 함수 바인딩
+			WaitEventTask->EventReceived.AddDynamic(this, &UGA_SG_Kick::OnGameplayEventReceived);
+			WaitEventTask->ReadyForActivation();
+		}
+```
+
+<br/>
+
+---
+
+<br/>
+
+오늘 구현하면서 알게된 것들 정리
+
+**K2_ 접두사**   
+원본 `EndAbility`의 복잡한 인자들을 넘길 필요 없이, 인스턴스 기반 어빌리티에서 멤버 변수를 활용해 능력을 끝내는 `K2_EndAbility()`를 사용해봤다. 단, 마지막 두 인자가 true, false가 고정된 상태로 전달되기 때문에 다른값을 넣기 위해선 원본을 사용하거나 따로 함수를 만들어서 깔끔하게 만들 수 있다.   
+
+**커스텀 AN을 사용하여 Event 발동**    
+몽타주에서 직접 커스텀 제작한 블루프린트 노티파이(AN_SendGameplayEvent)를 사용하여 Event Tag에 맞는 Event(GA_Kick)를 발동시켰다.   
+
+**GA C++ 파일에서 본인의 AbilityTags를 가져오기**   
+`AbilityTags` 멤버 변수 직참조 방식에서 캡슐화가 적용된 `GetAssetTags()` 함수 호출 방식으로 코드를 전면 리팩토링하여 추후 버전 업데이트시 사용이 불가능할 수 있다는 경고를 해결했다.   
+```cpp
+// 바로 이부분..!
+// 어빌리티 태그 정보가 private 일 수도 있어서 엔진이 제공하는 GetAssetTags()라는 함수를 사용하여 불러와야한다.
+		FGameplayTagContainer AssetTagsContainer = GetAssetTags();
+		FGameplayTag MyAbilityTag = FGameplayTag::EmptyTag;
+		if (AssetTagsContainer.Num() > 0)
+		{
+			MyAbilityTag = AssetTagsContainer.GetByIndex(0);
+		}
+```
 
   </p>
 </details>
+
