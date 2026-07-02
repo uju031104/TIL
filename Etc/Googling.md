@@ -83,4 +83,4 @@ Rounds / Waves: 반복되는 판수, 몰려오는 적의 차례
 
 Iteration: 반복 회차
 
-
+Peripheral : 말단, 중요하지 않은 부분, 컴퓨터에서 키보드 마우스같은 입력장치

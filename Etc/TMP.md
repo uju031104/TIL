@@ -9441,3 +9441,31 @@ if (WaitEventTask)
   </p>
 </details>
 
+#### <!-- 26.07.02 -->
+<details> 
+  <summary>26.07.02</summary>
+  <p>
+
+에이타니   
+
+**AI Perception**   
+
+`AIPerceptionComponent`에서 특정 액터에 대한 감지 정보를 가져오려면 `GetActorsPerception()` 함수를 사용해야 한다. 이 함수는 감지된 액터와 `FActorPerceptionBlueprintInfo` 구조체를 매개변수로 받아 해당 액터에 대한 모든 감각 정보를 반환한다.   
+
+`Lose Sight Radius`는 `Sight Radius`보다 `크거나 같게` 설정해야 한다. 이는 `히스테리시스(hysteresis)` 개념으로, 대상이 감지 범위 경계에서 약간만 움직여도 감지/미감지가 반복되는 것을 방지한다. 예를 들어 Sight Radius가 1000이고 Lose Sight Radius가 1200이면, 대상을 1000 이내에서 감지하고 1200 밖으로 나가야 놓치게 되어 안정적인 감지 시스템을 구현할 수 있다.   
+
+`Peripheral Vision Angle`(주변 시야각)은 AI가 전방을 기준으로 좌우 얼마만큼의 각도 내에 있는 대상을 볼 수 있는지를 정의한다. 예를 들어 90도로 설정하면 AI는 전방 180도(좌우 각 90도) 범위 내의 대상만 감지할 수 있다. 이는 시각 감지에만 적용되는 속성이며, 회전 속도나 청각 감지와는 무관하다.   
+
+**BT**   
+
+AI의 행동을 조건에 따라 전환하는 스테이트 머신을 구현할 때는 Blackboard와 Behavior Tree의 조합이 가장 적절하다.   
+`Blackboard`는 AI의 상태 정보(플레이어 발견 여부, 타겟 위치 등)를 저장하는 공유 메모리 역할을 한다.   
+`Selector` 노드는 우선순위에 따라 자식 노드를 실행하며, 조건이 만족되면 해당 분기를 선택한다.   
+`Decorator`는 조건을 체크하여 특정 Sequence의 실행 여부를 결정한다.   
+
+
+
+
+
+  </p>
+</details>
