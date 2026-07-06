@@ -9564,7 +9564,114 @@ void UGA_SG_Kick::InputReleased(const FGameplayAbilitySpecHandle Handle, const F
 }
 ```
 
+  </p>
+</details>
 
+#### <!-- 26.07.06 -->
+<details> 
+  <summary>26.07.06</summary>
+  <p>
+
+
+에이타니   
+
+**Event Dispatcher**    
+Event Dispatcher 패턴의 핵심은 발신자(NPC A)가 수신자(NPC B)를 직접 알 필요 없이 이벤트를 브로드캐스트하는 것이다. NPC A가 NPC B의 함수를 직접 호출하면 Event Dispatcher를 사용하는 의미가 없고, 강한 결합이 발생한다. Event Dispatcher는 1:N 통신에 매우 효과적이다.   
+
+<br/>
+
+축구공은 인식 안되는 Collision 오류   
+
+단순하게 Collision을 추가안해서 생겼다.
+```cpp
+// Pawn(플레이어/AI) 타입 감지
+ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn)); 
+	
+// 축구공(물리 액터) 감지를 위해 PhysicsBody 추가
+ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_PhysicsBody));
+```
+
+<br/>
+
+지난 언리얼 마스터 수업에서 배웠던 부분을 바로 활용   
+
+```cpp
+// Hp와 Stamina를 0과 100사이로 유지시켜준다.
+void UGAS_SG_CharacterAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
+	
+	if (Attribute == GetHpAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.0f, GetMaxHp());
+	}
+	else if (Attribute == GetStaminaAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxStamina());
+	}
+	
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PreAttributeChange"));
+}
+
+// PreAttributeChange에서만 해주면 Base 값은 저 범위를 벗어나기 때문에 범위를 벗어나는 순간 Hp를 Set해준다.
+void UGAS_SG_CharacterAttributeSet::PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data)
+{
+	Super::PostGameplayEffectExecute(Data);
+	
+	if (Data.EvaluatedData.Attribute == GetHpAttribute())
+	{
+		// SetHp는 BaseHp를 Set해준다.
+		SetHp(GetHp());
+	}
+	else if (Data.EvaluatedData.Attribute == GetStaminaAttribute())
+	{
+		SetStamina(GetStamina());
+	}
+	
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("PostGameplayEffectExecute"));
+}
+```
+
+<br/>
+
+GAS를 사용하며 네트워크 코드도 같이(Listen Server로 개발) 추가하고 있는데 서버에 대해서 다시 한 번 공부하고 정리했다.   
+
+**리슨 서버 (Listen Server)**      
+정의: 게임을 플레이하는 플레이어 중 한 명(방장)의 PC가 '서버 역할'과 '클라이언트(화면 렌더링) 역할'을 동시에 수행하는 구조입니다.   
+
+**특징**   
+방장 플레이어는 서버 권한(HasAuthority == true)을 가짐과 동시에, 로컬 컨트롤러(IsLocallyControlled == true)로 자신의 캐릭터를 조종합니다.   
+방장의 화면에서는 네트워크 레이턴시(지연 시간)가 0입니다.   
+다른 참여자(Client)들은 서버 역할을 하는 방장의 PC에 접속합니다.   
+
+**데디케이트 서버 (Dedicated Server)**   
+정의: 그래픽 화면(UI, 메시 렌더링)이 전혀 없고, 오직 게임의 물리 연산, 로직 검증, 동기화만 처리하는 순수한 독립 서버 프로그램입니다.   
+
+**특징**   
+모든 플레이어가 똑같이 클라이언트가 되며, 서버에 접속합니다.   
+서버에는 플레이어가 존재하지 않으므로, 서버 컴퓨터 내부의 캐릭터들은 IsLocallyControlled가 무조건 false입니다.   
+모든 플레이어가 공평하게 네트워크 레이턴시를 가집니다.   
+
+<br/>
+
+bReplicateInputDirectly = true; (어빌리티 생성자)   
+클라이언트가 인풋(마우스 클릭 등)을 입력했을 때, 이 입력 신호를 서버로 직접 복제(Replicate)하겠다는 세팅입니다.   
+
+왜 썼는가?   
+드롭킥은 누르는 순간 즉시 시전됩니다. 클라이언트 화면에서 드롭킥 인풋(Started)이 터졌을 때, 이 신호가 서버로 즉시 전달되어 서버에서도 동일한 어빌리티가 예측(Prediction) 및 실행되도록 유도합니다. 루트 모션과 모션 워핑이 서버/클라이언트 양쪽에서 싱크가 맞추어 시작되도록 돕는 핵심 기반입니다.   
+
+if (!HasAuthority(...)) return; (서버 권한 체크)   
+이 코드를 실행하는 주체가 서버(Authority)인지 확인하고, 클라이언트라면 아래 로직을 실행하지 못하게 막는 방어벽입니다.   
+
+리슨 서버에서의 동작   
+방장이 드롭킥을 차면 HasAuthority가 참이므로 통과합니다. 클라이언트가 차면, 클라이언트 화면에서는 이 조건문에서 막히고, 서버에 복제되어 실행 중인 서버 측 어빌리티에서만 이 아래 로직이 실행됩니다.
+
+축구공에 물리적인 힘을 가하거나(PushBall), 적에게 데미지 효과(GameplayEffect)를 주는 것은 절대로 클라이언트가 마음대로 결정해서는 안 되기 때문입니다. (클라이언트가 결정하게 하면 핵/변조에 취약해집니다.)   
+
+UFUNCTION(NetMulticast, Reliable) (멀티캐스트 래그돌)   
+의미: "서버에서 이 함수를 실행하면, 접속해 있는 모든 클라이언트(방장 포함)에게 이 함수를 원격 실행(RPC) 시켜라"라는 뜻입니다.
+
+적 캐릭터가 드롭킥을 맞고 래그돌로 전환되어 날아가는 연출은 모든 사람의 화면에 똑같이 보여야 하는 시각적 연출입니다. 서버에서 데미지 판정을 마친 뒤, Multicast_ApplyRagdollPhysics를 호출함으로써 방장 화면과 클라이언트 화면 모두에서 적이 시원하게 날아가게 동기화한 것입니다.   
 
   </p>
 </details>
