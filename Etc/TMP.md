@@ -9675,3 +9675,474 @@ UFUNCTION(NetMulticast, Reliable) (멀티캐스트 래그돌)
 
   </p>
 </details>
+
+#### <!-- 26.07.07 -->
+<details> 
+  <summary>26.07.07</summary>
+  <p>
+
+에이타니   
+
+**XR 핸드트래킹**   
+XR 핸드트래킹 구현에서 `Get Hand Joint Transform` 노드는 손의 각 관절(Joint)에 대한 실시간 위치와 회전 정보를 직접 가져올 수 있는 표준 방식이다. 이 노드를 통해 엄지, 검지, 중지 등 각 손가락의 특정 관절(팁, 중간 관절 등)의 Transform 데이터를 정확하게 추적할 수 있어 오브젝트 그랩, 포인팅, 제스처 인식 등의 상호작용을 구현할 수 있다.(`OpenXR Hand Tracking` 플러그인 필요)   
+
+핸드트래킹 구현의 올바른 순서는 먼저 `Get Motion Controller` 노드로 왼손 또는 오른손을 선택하고, `Get Hand Joint Transform`으로 특정 관절(엄지 끝 등)의 위치를 얻은 후, `Sphere Trace` 또는 `Box Trace`로 충돌을 감지하고, `Hit Result`를 확인하는 것이다.   
+
+**패키징**   
+언리얼 엔진에서 프로젝트를 패키징할 때 필수적으로 설정해야 하는 항목은 Default Maps(시작 맵), 타겟 플랫폼, 빌드이다.   
+LOD(Level Of Detail) 최적화는 성능 향상을 위한 권장사항이지만, 패키징을 위해 반드시 설정해야 하는 필수 항목은 아니다.   
+
+<br/>
+
+---
+
+<br/>
+
+축구공 네트워크 물리적용을 위해서 테스트용 블루프린트 액터를 C++로 우선 전환하였다. (디테일한 네트워크 설정을 위함)   
+
+```cpp
+// SG_SoccerBall.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "SG_SoccerBall.generated.h"
+
+UCLASS()
+class SOCCERGAME_API ASG_SoccerBall : public AActor
+{
+	GENERATED_BODY()
+	
+public:
+	ASG_SoccerBall();
+	// Mesh 접근 Getter 함수
+	FORCEINLINE UStaticMeshComponent* GetSoccerBallMesh() const { return BallMesh; }
+
+private:
+	// 리플렉션, 에디터에선 접근 가능한 private  설정 meta = (AllowPrivateAccess = "true")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ball", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> SoccerBallMesh;
+
+};
+
+// SG_SoccerBall.cpp
+
+#include "Character/SG_SoccerBall.h"
+
+ASG_SoccerBall::ASG_SoccerBall()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	
+	// 네트워크 복제 활성화
+	bReplicates = true;
+	SetReplicateMovement(true);
+
+	SoccerBallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BallMesh"));
+	RootComponent = SoccerBallMesh;
+
+	// 물리 및 콜리전 설정 추가
+	SoccerBallMesh->SetSimulatePhysics(true);
+	SoccerBallMesh->SetCollisionProfileName(TEXT("PhysicsBody"));
+}
+```
+
+<br/>
+
+콘솔창에 네트워크 지연을 부여하여 현재 내 공의 반응속도를 체크해보았다.   
+`NetEmulation.PktLag 150`   
+공을 차고 0.2~ 0.3초 뒤에 날아가는 듯한 모습을 보여준다.   
+캐릭터도 미세하게 뚝뚝 끊기는 모습을 보여준다.   
+캐릭터로 공을 밀면서 같이 가면 공이 동기화가 제대로 되지 않아서 캐릭터가 뒤에서 매우 부자연스럽게 따라간다.   
+서버와 클라이언트의 동기화가 제대로 되지 않는 모습   
+
+<br/>
+
+**이런 현상들이 발생하는 원인**   
+
+캐릭터는 공 보다는 낫지만 부자연스러운 움직임을 보여주는 현상   
+-> 원인   
+`CharacterMovementComponent`는 원래 네트워크 지연 환경에서도 부드럽게 움직이도록 '클라이언트 측 예측(Client-side Prediction)' 기능이 기본적으로 탑재되어 있다.   
+하지만 이 예측이 맞지 않아서 서버와의 차이가 발생해 어긋나는 것이다.   
+
+축구공은 대놓고 매우매우 느린 반응속도를 보여주는 현상   
+-> 원인   
+공은 클라이언트에서 예측을 전혀 하지 않기때문에 오직 서버의 물리를 받고 있다.   
+왕복 지연 시간(Ping)인 300ms + 패킷 처리 시간이 합쳐져서 느리게 반응하는 것.   
+
+<br/>
+
+**해결하기위한 여러가지 방안들**   
+
+첫 번째로 단순하게 서버가 확인하는 빈도를 높여보았다.   
+
+```cpp
+NetUpdateFrequency = 100.0f; // 기본값( 보통 33이나 66)보다 올려서 서버가 더 자주 공 위치를 방송하게 함
+MinNetUpdateFrequency = 33.0f;
+```
+
+결과 : 지연이 높은 상황에서 큰 차이가 없었다.   
+
+두 번째로 네트워크 물리 공 보간(Interpolation)을 사용해서 서버와 클라를 자연스럽게 연결하는 방법을 시도해보았다.   
+
+일단, 애니메이션 몽타주의 ANS, AN의 `Trigger Setting`에서 클라에서 실행되도록 설정을 해주었다. `Trigger on Follower`를 True로 설정.   
+
+했지만 여전히 서버에서만 실행되는 문제가 발생.   
+
+원인을 찾아보았다.   
+이유는 바로 Kick을 할 때 공을 인식하는 부분과 사람들 인식하는 부분을 나눠서 구현했는데 둘 다 서버권한이 필요한 Event 함수에 묶어놨기 때문이었다.   
+
+```cpp
+// EventReceived 함수에 두 행위가 다 묶여있다.
+void UGA_SG_Kick::OnGameplayEventReceived(FGameplayEventData Payload)
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("FindAndPushBall Test"));
+	FindAndPushBall(); // 여기있는 이 함수를 밑으로 옮기고 이건 삭제
+	
+	OnEnemyHitReceived(Payload);
+}
+```
+
+<br/>
+
+마우스를 떼는 순간 공 부터 체크를 해서 서버/클라 양쪽에서 빠르게 실행되게 바꿔줘야한다.   
+
+```cpp
+// InputReleased 함수에서 FindAndPushBall()를 실행시켜준다.
+
+// ... InputReleased 기존 로직
+
+FindAndPushBall(); // 추가 
+
+    if (MontageToPlay)
+    {
+		// ... 기존 로직
+	}
+```
+
+
+<br/>
+
+또 다시 생긴 문제점.   
+이렇게 하면 차는 순간의 딜레이는 줄어들지만 몽타주 재생 전에 이미 발차기가 실행이 되고 네트워크과 클라에서 초반엔 공이 같이 움직이다가 중간에 멈췄다가 다시 튀어오름   
+
+첫 번째 문제부터 해결해보자.....
+
+몽타주 재생 전에 이미 발차기가 실행되는 문제   
+원인 : 클라에서 똑같이 실행시키기 위해 구조를 바꿨더니 Kick을 하는 순간 공을 차는 함수가 실행됨   
+
+해결법 : Delay를 줘서 실제 몽타주로 타격하는 시간쯤에 Kick이 발동하게 조절해준다.   
+
+```cpp
+// Delay 추가
+#include "Abilities/Tasks/AbilityTask_WaitDelay.h"
+
+float KickSyncDelay = 0.45f; // 딜레이 시간 설정
+       
+    	UAbilityTask_WaitDelay* WaitDelayTask = UAbilityTask_WaitDelay::WaitDelay(this, KickSyncDelay);
+    	if (WaitDelayTask)
+    	{
+    		// 딜레이가 끝나면 (발이 정확히 공에 배달되면) 오버랩 판정 실행
+    		WaitDelayTask->OnFinish.AddDynamic(this, &UGA_SG_Kick::FindAndPushBall);
+    		WaitDelayTask->ReadyForActivation();
+    	}
+```
+
+공을 차는 순간 동기화는 어느정도 됐다.   
+
+<br/>
+
+또 새로운 문제점   
+
+공을 차면 클라이언트에서 중간에 멈췄다가 날아가는 현상   
+
+원인 : 축구공은 무조건 서버 위치 기준으로 보간을 하게 되어있다. 근데 위에서 몽타주 동기화 해결을 하면서 로컬과 서버를 어느정도 맞춰버리면서 서버 위치를 기준으로 업데이트를 하면 오히려 어긋나게 됐다.  
+
+```cpp
+// 원인이 된 코드(축구공 C++ 내부)
+// 문제 발생: 내 화면에서 이미 잘 날아가고 있는 공의 위치(CurrentLoc)를,
+   // 150ms 전의 과거 서버 위치 정보가 담긴 TargetLoc를 향해 역으로 당겨버린다.
+   FVector NewLoc = FMath::VInterpTo(CurrentLoc, TargetLoc, DeltaTime, InterpolationSpeed);
+   SoccerBallMesh->SetWorldLocationAndRotation(NewLoc, NewRot);
+```
+
+<br/>
+
+해결 방법 : 공을 찬 직후(에러가 나는 부분)에는 잠시 보간(Interpolation)을 끈다.   
+
+```cpp
+// 축구공 헤더파일에 보간을 잠깐 끄는 코드를 작성해준다.
+
+public:
+	// 외부에 오픈할 킥 반응 함수
+	void HandleLocalPredictionKick();
+	
+private:
+	// 로컬 예측 진행 중인 남은 시간 (이 시간이 0보다 크면 서버 동기화를 무시함)
+	float PredictionInterpCooldown = 0.0f;
+
+
+// 축구공 cpp의 Tick함수에서 보간을 패스하는 코드를 추가해준다.
+
+// 쿨다운 타이머가 작동 중이라면 감소시키고 보간을 패스
+if (PredictionInterpCooldown > 0.0f)
+{
+	PredictionInterpCooldown -= DeltaTime;
+	return; // 공이 서버 위치로 바뀌어서 생기는 현상 차단
+}
+
+// 외부에 오픈할 킥 반응 함수 내부 구현
+void ASG_SoccerBall::HandleLocalPredictionKick()
+{
+    // 렉 환경(150ms)을 고려하여 약 0.25초 동안 서버 패킷 보간을 차단
+    PredictionInterpCooldown = 0.25f; 
+}
+```
+
+이제 축구공을 차는 순간 차단하는 함수를 호출하게 세팅을 해줘야한다.   
+
+```cpp
+// 기존 AddImpulse 밑에 로컬인경우 서버를 잠시 차단하게 위에서 만든 함수를 호출해준다.
+BallMesh->AddImpulse(PushDirection * CachedFinalKickPower, NAME_None, true);
+					
+if (HasAuthority(&CurrentActivationInfo))
+{
+	UE_LOG(LogTemp, Warning, TEXT("🔴 [SERVER] 서버 물리 적용 완료!"));
+}
+else
+{
+	SoccerBall->HandleLocalPredictionKick();
+	UE_LOG(LogTemp, Warning, TEXT("🟢 [CLIENT] 로컬 예측 중... 잠시 서버 동기화 차단"));
+}
+```
+
+문제가 있던 구간은 해결이 됐는데 문제는 완전 해결이 된게 아니라 문제가 있는 구간을 뒤로 미룬 느낌이 됐다. 서버 차단을 한 구간만 정상적으로 작동하다가 그 구간이 지나면 다시 공이 서버 기준으로 롤백됐다가 날아간다.   
+
+총제적 난국   
+
+다시 정리해보는 현재의 문제점   
+
+서버와 클라가 둘 다 물리엔진을 계산하다보니 조금의 오차만 나도 난리가난다.   
+현재는 보간을 통해서 서버에서 공의 위치만 따와서 적용을 하는데 그렇게 하다보니 보간을 막는 타이머가 끝나면 다시 문제가 생겨버린다.   
+
+공의 위치만 동기화할게 아니라 속도, 회전 속도 등을 동기화해서 조절을 해줘야한다.   
+
+```cpp
+// 축구공의 정보를 저장하는 구조체를 생성
+
+// 축구공의 물리 상태 저장용 구조체(Server)
+USTRUCT(BlueprintType)
+struct FBallPhysicsState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Location = FVector::ZeroVector;
+
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
+	FVector LinearVelocity = FVector::ZeroVector;
+
+	UPROPERTY()
+	FVector AngularVelocity = FVector::ZeroVector;
+};
+
+// 서버의 물리 상태 동기화 (ReplicatedUsing 설정)
+UPROPERTY(ReplicatedUsing = OnRep_ServerPhysicsState)
+FBallPhysicsState ServerPhysicsState;
+
+UFUNCTION()
+void OnRep_ServerPhysicsState();
+
+```
+
+이런식으로 다양한 정보를 동기화 하는 방향으로 작성해보았지만 여전히 서버와 클라이언트 차이는 좁혀지지 않았다.   
+
+<br/>
+
+해도해도 안되는 동기화 문제...
+
+이 문제의 해결방법으로 공을 차거나 공에 닿는 순간 해당 캐릭터(클라)가 공을 소유하고 정보를 서버로 보내고 서버가 다시 클라에 전달만해주는 구조를 구현해보기로 했다.   
+공이 이리저리 튀어서 Owner가 1초에 몇 번씩 바뀌는 상황에도 큰 부하가 없기 때문에 좋은 방법같다.   
+
+일단 서버로부터 동기화하는 코드에 내가 Owner일 때 return을 하게 작성해줬다.   
+```cpp
+void ASG_SoccerBall::OnRep_ServerPhysicsState()
+{
+	// 공을 소유하고 있는 상태라면 서버를 무시하고 return 해준다.
+	APawn* MyPawn = Cast<APawn>(GetOwner());
+	if (MyPawn && MyPawn->IsLocallyControlled())
+	{
+		return; 
+	}
+	
+	//... 기존 로직
+}
+```
+
+<br/>
+
+일단 Owner가 바뀌는건 확인했지만 먼저 캐릭터 자체의 Movement 문제와 공이 멈추지 않는 문제부터 고치는게 시급해졌다.   
+
+공이 멈추지 않는 문제   
+마찰력, 제동력 등을 설정해줬는데도 공이 계속 굴러가는 문제가 생겼다.   
+
+원인을 파악해봤는데 높은 확률로 서버에서 클라로 공의 위치, 속도 등을 전송하는 함수가 문제일 것 같은 상황이다. 계속 동일한 속도를 건네주어서 공이 멈추지 않는것이다.   
+
+해결방법    
+
+1.SetReplicateMovement(false)로 엔진 간섭 차단   
+2.서버 복제 차단코드 추가   
+
+위 방법으로 공이 멈추지 않는 현상은 수정완료   
+
+<br/>
+
+현재 공의 속도만 복제를 하다보니 시작지점과 속도는 같지만 마지막에 공이 위치하는 곳이 다른 현상이 발생했다.   
+공이 느려질 때 동기화를 자연스럽게 시켜주는게 필요해졌다.   
+
+해결방법   
+
+공의 상태에 따라서 부드럽게 움직임을 가져가서 어색하지 않게 위치를 보정시켜준다.   
+
+```cpp
+void ASG_SoccerBall::OnRep_ServerPhysicsState()
+{
+	// ... 기존 코드
+	
+	// 서버가 새 패킷을 보냈을 때 클라이언트가 처리할 로직
+	if (SoccerBallMesh)
+	{
+		// 서버의 실제 속도와 위치 가져오기
+		SoccerBallMesh->SetPhysicsLinearVelocity(ServerPhysicsState.LinearVelocity);
+		SoccerBallMesh->SetPhysicsAngularVelocityInRadians(ServerPhysicsState.AngularVelocity);
+
+		// 위치 오차 보정
+		FVector CurrentLoc = SoccerBallMesh->GetComponentLocation();
+		float Distance = FVector::Dist(CurrentLoc, ServerPhysicsState.Location);
+
+		// 공의 현재 속력(크기) 계산
+		float CurrentSpeed = SoccerBallMesh->GetPhysicsLinearVelocity().Size();
+
+		// 공이 거의 멈춰가거나(시속이 낮을 때) 위치 차이가 너무 클 때 (예: 1.5미터 이상)
+		if (CurrentSpeed < 100.0f || Distance > 150.0f)
+		{
+			// 눈에 띄지 않게 부드럽게 서버 위치로 슬쩍 이동 (Interp 느낌의 세팅)
+			// 만약 완전히 정지했다면(서버 속도가 0이면) 서버 위치로 보정
+			if (ServerPhysicsState.LinearVelocity.IsNearlyZero())
+			{
+				SoccerBallMesh->SetWorldLocationAndRotation(ServerPhysicsState.Location, ServerPhysicsState.Rotation);
+			}
+			else
+			{
+				// 완전히 멈추기 직전 굴러가는 중이라면 부드럽게
+				FVector BlendedLoc = FMath::VInterpTo(CurrentLoc, ServerPhysicsState.Location, GetWorld()->GetDeltaSeconds(), 5.0f);
+				SoccerBallMesh->SetWorldLocation(BlendedLoc);
+			}
+		}
+	}
+}
+```
+
+<br/>
+
+또 발생한 문제    
+
+공이 서버와 클라에서 아예 다른 위치에서 노는 현상   
+
+원인   
+Owner를 설정하는 코드에서 너무 과하게 방어를 해버렸다. 공의 Owner가 됐는데 공이 다른곳으로 가버렸을때도 무조건 Owner의 공으로 취급해서 동기화를 아예 안시켜버리는 문제가 생긴것.   
+```cpp
+// 문제를 유발한 코드
+APawn* MyPawn = Cast<APawn>(GetOwner());
+if (MyPawn && MyPawn->IsLocallyControlled())
+{
+    return; // Owner라면 서버 무시
+}
+```
+
+해결방법   
+
+공이 떨어지면 소유권을 없앤다.(일정시간)   
+
+```cpp
+void ASG_SoccerBall::NotifyHit(
+	UPrimitiveComponent* MyComp, 
+	AActor* Other, 
+	UPrimitiveComponent* OtherComp, 
+	bool bSelfMoved, 
+	FVector HitLocation, 
+	FVector HitNormal, 
+	FVector NormalImpulse,
+	const FHitResult& Hit
+)
+{
+	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
+
+	// 우리가 설계한 플레이어간 소유권(Owner) 변경 락 체인 로직
+	ACharacter* HittingCharacter = Cast<ACharacter>(Other);
+	if (HittingCharacter && HasAuthority())
+	{
+		// 쿨이 돌고있으면 소유권 이전 불가능
+		if (GetWorld()->GetTimerManager().IsTimerActive(OwnerCooldownTimerHandle))
+		{
+			// --- 추가 코드 1번 ---
+			// 쿨다운 중이라도 지금 치고 있는 사람이 주인이라면 타이머 계속 연장(드리블 유지)
+			if (GetOwner() == HittingCharacter)
+			{
+				float ReleaseDelay = 0.5f; // 0.5초 동안 안 건드리면 소유권 박탈
+				GetWorld()->GetTimerManager().SetTimer(
+					OwnerReleaseTimerHandle, 
+					this, &ASG_SoccerBall::ReleaseOwner,
+					ReleaseDelay, 
+					false
+					);
+			}
+			return;
+		}
+
+		if (GetOwner() != HittingCharacter)
+		{
+			SetOwner(HittingCharacter);
+            
+			// 0.1초(쿨) 동안 소유권 이전 불가능
+			float OwnerLockTime = 0.1f; 
+			GetWorld()->GetTimerManager().SetTimer(
+				OwnerCooldownTimerHandle, 
+				this, 
+				&ASG_SoccerBall::ResetOwnerCooldown, 
+				OwnerLockTime, 
+				false
+			);
+		}
+		
+		// --- 추가 코드 2번 ---
+		float ReleaseDelay = 0.5f; 
+		GetWorld()->GetTimerManager().SetTimer(
+			OwnerReleaseTimerHandle, 
+			this, 
+			&ASG_SoccerBall::ReleaseOwner, 
+			ReleaseDelay, 
+			false
+			);
+	}
+}
+```
+
+<br/>
+
+위 코드로 어느정도 잡히나 했는데 여전히 공이 미친듯이 따로 놀아서 결국 다시 SetReplicateMovement를 켜주고 코드를 수정하기로 했다.   
+
+일단, OwnerShip 부여하는 로직으로 꽤 괜찮은 결과를 얻었다.   
+
+
+
+
+  </p>
+</details>
