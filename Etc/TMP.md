@@ -10146,3 +10146,66 @@ void ASG_SoccerBall::NotifyHit(
 
   </p>
 </details>
+
+#### <!-- 26.07.08 -->
+<details> 
+  <summary>26.07.08</summary>
+  <p>
+
+서버는 괜찮은데 클라에서 공을 Impulse 하는 순간 뜬근없이 LobbyLevel로 이동하는 현상   
+
+원인   
+공이 비정상적으로 바닥에 쳐박히며(눈에는 안보임) KillZ에 걸려 파괴되면서 어딘가에 있는 레벨 리셋 코드를 작동시킴   
+
+```cpp
+// 공에 EndPlay를 Override하여 확인
+
+// 로비 레벨로 나가지는 버그 확인
+virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+void ASG_SoccerBall::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    Super::EndPlay(EndPlayReason);
+    UE_LOG(LogTemp, Error, TEXT("공이 파괴되었습니다! 이유: %d"), (int32)EndPlayReason);
+}
+```
+
+로그를 확인하니 `LogTemp: Error: 공이 파괴되었습니다! 이유: 2` 라고 떴다.   
+
+해결 방법   
+
+```cpp
+// CCD 옵션을 켜준다.
+SoccerBallMesh->SetUseCCD(true); 
+```
+
+<br/>
+
+공이 캐릭터와 충돌해서 버벅이는 현상 때문에 공과 충돌을 막고 일정 거리에 들어오면 자동으로 Impulse를 주어 드리블 하는 형태로 세팅을 해보았다.   
+
+근데, 드리블 중간 중간 캐릭터가 공을 뚫고 들어가는 현상이 발견되었다.   
+
+원인   
+드리블 하는 동안 서버의 복제를 잠깐 막는다. 다시 서버와 동기화 하는 순간 위치 차이만큼 공이 이동하는데 캐릭터의 속도가 빠르다보니 공의 위치와 캐릭터의 위치가 겹치게 된다.   
+
+해결방법   
+가상 드리블 Impulse 방식을 포기하고 다시 원래대로 바꾸고 RnD를 계속 하고있다.   
+
+<br/>
+
+RnD를 계속 하다보니 코드들이 섞여서 여러 옵션들이 다 켜지고 꺼지고 해서 뒤죽박죽 됐다. 기본 설계를 다시 하고 코드를 다시 작성하려고 한다.   
+
+**기본적인 설계**   
+Player -> Kick Input -> Server 승인   
+ 
+Ball Owner를 Player로 설정   
+Owner가 Ball Physics 계산(클라)   
+Server로 Position / Velocity 전송   
+Server가 다른 Client에게 Replicate   
+
+Ball의 여러 조건(정지, 느린속도 등)일 경우 Owner 해제   
+Server가 다시 Authority를 가져간다.   
+
+
+  </p>
+</details>
