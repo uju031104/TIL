@@ -10275,7 +10275,116 @@ UDP는?
 로그인 할 때는 어떤 프로토콜을 쓸지
 게임 내부에서 어느 부분에서 뭘 쓸지 잘 알고있어야한다.   
 
+  </p>
+</details>
 
+#### <!-- 26.07.10 -->
+<details> 
+  <summary>26.07.10</summary>
+  <p>
+
+GA_Kick이 키를 입력할때마다 계쏙 나가는 현상   
+
+원인 : GA_Kick이 구조상 계속 실행 될 수 있음.
+
+**해결방법1**   
+GA가 발차기 중에 실행이 안되도록 여러가지 방법을 구현
+
+CanActivateAbility(), bIsKickInProgress, Spec->IsActive() 3가지를 사용해서 온몸비틀기로 GA 중복 실행을 막아보았다.   
+
+**CanActivateAbility()**   
+CanActivateAbility()를 Override하고 bIsKickInProgress라는 변수를 만들어서 Kick이 진행중에는 false로 만들어서 실행하지 못하도록 한다.      
+또한 Spec->IsActive()까지 추가하여서 더 제대로 막아보았다.   
+
+
+```cpp
+// 헤더에서 override해주고
+public:
+	// 어빌리티가 실행될 수 있는 조건인지 서버/클라 양쪽에서 미리 검사하는 GAS 핵심 함수
+	virtual bool CanActivateAbility(
+		const FGameplayAbilitySpecHandle Handle, 
+		const FGameplayAbilityActorInfo* ActorInfo, 
+		const FGameplayTagContainer* SourceTags = nullptr, 
+		const FGameplayTagContainer* TargetTags = nullptr, 
+		FGameplayTagContainer* OptionalRelevantTags = nullptr
+	) const override;
+
+// cpp에 구현
+bool UGA_SG_Kick::CanActivateAbility(
+    const FGameplayAbilitySpecHandle Handle, 
+    const FGameplayAbilityActorInfo* ActorInfo, 
+    const FGameplayTagContainer* SourceTags, 
+    const FGameplayTagContainer* TargetTags, 
+    OUT FGameplayTagContainer* OptionalRelevantTags) const
+{
+   // 이미 킥이 진행 중이라면 서버든 클라든 활성화 자체를 거부
+   if (bIsKickInProgress)
+   {
+      UE_LOG(LogTemp, Warning, TEXT("킥이 이미 활성화 돼서 실패 해야해"));
+      return false;
+   }
+   
+   // 어빌리티가 이미 활성화되어서 작동 중이라면 실행 거부
+   FGameplayAbilitySpec* Spec = ActorInfo->AbilitySystemComponent->FindAbilitySpecFromHandle(Handle);
+   if (Spec && Spec->IsActive())
+   {
+      UE_LOG(LogTemp, Error, TEXT("킥이 이미 활성화 돼서 실패 해야한다고"));
+      return false;
+   }
+   
+   UE_LOG(LogTemp, Warning, TEXT("왜 자꾸 그냥 실행되냐"));
+
+   return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags);
+}
+
+
+// 추가로 이런 코드를 중간중간 심어뒀지만 GA가 실행중이라는 걸 씹고 Input이 들어오면 EndAbility가 실행되고 바로 다시 Activate 된다...
+// 이미 발차기/차징중이면 취소
+   if (bIsKickInProgress)
+   {
+      return;
+   }
+```
+
+음... 일단 이 방법으로는 해결을 못했다. 활성화 처리가 안된건지 Input 문제인지 더 확인해야겠다.   
+
+원인을 분석하다가 Character의 Input에 눈이 더 가서 이 부분을 수정해보기로 했다.   
+
+<br/>
+
+---
+
+<br/>
+
+**해결방법2**   
+그 전에 GA_Kick의 `Retrigger Instanced Ability`가 생성자에서 false로 되어있는데 실제 BP에선 true로 되어있는걸 확인했다. 근데 체크해제를 해도 소용이 없다. Input 문제일 확률이 더 높아졌다.   
+
+```cpp
+UGA_SG_Kick::UGA_SG_Kick()
+{
+    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+    bReplicateInputDirectly = true;
+   
+	// 이런 기본 세팅은 BP에 적용 안되는경우가 생각보다 많은 것 같다...!
+    bRetriggerInstancedAbility = false;
+   
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+**이상현상 추가**   
+Input 확인하기 전에 한가지 현상을 발견했는데 킥 버튼을 계속 누르면 동일하게 처음부터 재생된다기보단 차징 시간이 중첩이 되는 듯한? 계속 누르다가 시행하면 차징이 된 강한 킥이 나가는 현상을 발견했다.   
+이 부분이 현재 문제를 수정할 수 있는 Key가 될 것 같다.   
+
+라고 생각하고 다시 테스트해봤는데 이번엔 그런 현상이 사라졌다. 이런...
+
+**해결방법3**   
+결국 Input이 계속 들어오면 그 순간 EndAbility가 실행된 후 ActivateAbility가 실행되는 현상이 문제라서 계속 들어오는 Input을 확인해야겠다.   
 
 
   </p>
