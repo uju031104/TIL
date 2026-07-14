@@ -10567,7 +10567,185 @@ void ASG_Character::DisableRagdollInternal(FVector TargetLocation, FRotator Targ
 }
 ```
 
+  </p>
+</details>
 
+#### <!-- 26.07.14 -->
+<details> 
+  <summary>26.07.14</summary>
+  <p>
+
+발생현상   
+드롭킥을 날려서 래그돌이 된 캐릭터에게 다시 드롭킥을 날릴 수 있는 현상 + 두번 맞으면 일어나는 몽타주가 2번 재생되는 현상   
+
+원인   
+드롭킥을 맞고 날아가더라도 어떠한 조건을 설정하지 않아서 또 드롭킥에 맞게된다.   
+
+해결방법   
+드롭킥을 맞으면 무적 태그를 부여해서 일어날때까지 무적상태를 유지시켜준다.   
+EnableRagdoll(드롭킥 맞는 순간) 무적 태그를 부여하고 몽타주가 끝나면 호출되는 OnGetUpMontageEnded() 함수에서 무적 태그를 떼주면 된다.   
+
+```cpp
+// EnableRagdoll() 함수
+void ASG_Character::EnableRagdoll(FVector HitImpulse, FVector HitLocation)
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	UCapsuleComponent* CapsuleComp = GetCapsuleComponent();
+	UCharacterMovementComponent* MovementComp = GetCharacterMovement();
+
+	if (!MeshComp || !CapsuleComp || !MovementComp)
+	{
+		return;
+	}
+	
+	// 래그돌 실행시 무적 태그를 붙여준다!
+	if (AbilitySystemComponent)
+	{
+		FGameplayTag ImmunityTag = FGameplayTag::RequestGameplayTag(FName("State.Immunity"));
+		
+		AbilitySystemComponent->AddLooseGameplayTag(ImmunityTag);
+		UE_LOG(LogTemp, Warning, TEXT("[%s] EnableRagdoll: State.Immunity 태그 부여 완료"), *GetName());
+	}
+
+	//... Ragdoll 물리설정하는 기존 코드
+}
+
+// OnGetUpMontageEnded() 함수
+void ASG_Character::OnGetUpMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+    // ... 기존 코드
+	
+	// 몽타주 종료시 무적 태그를 떼준다!
+	if (AbilitySystemComponent)
+	{
+		FGameplayTag ImmunityTag = FGameplayTag::RequestGameplayTag(FName("State.Immunity"));
+		AbilitySystemComponent->RemoveLooseGameplayTag(ImmunityTag);
+		UE_LOG(LogTemp, Warning, TEXT("[%s] OnGetUpMontageEnded: State.Immunity 태그 제거 완료"), *GetName());
+	}
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+현상   
+래그돌이 돼서 날아간 후 일어날 때 서버와 클라의 위치 차이로 인해서 순간이동하는 현상
+
+원인   
+보간을 하지 않아서 서버와 동기화 되는 순간 순간이동해버림   
+
+해결방법   
+래그돌 상태에서 바닥에 떨어졌을때 -> 몽타주 재생 직전   
+이 사이에 자연스럽게 보간을 해준다.   
+
+```cpp
+
+```
+
+<br/>
+
+---
+
+<br/>
+
+현상   
+드롭킥 맞음 -> 래그돌 -> 누운 상태에서 일어서기   
+가 진행돼야하는데   
+드롭킥 맞음 -> 래그돌 -> 일어남(0.1초) -> 누운 상태에서 일어서기   
+가 진행돼서 어색함   
+
+원인   
+원인을 알 수가 없어서 여러가지 원인을 추측하면서 테스트 해봤다.      
+
+**첫 번째 시도**   
+Montage를 실행하는 시점이 빨라서 Idle이 섞이는 경우   
+
+```cpp
+// 몽타주 재생을 가장 뒤로 뺌
+void ASG_Character::DisableRagdollInternal(FVector TargetLocation, FRotator TargetRotation, bool bIsFaceDown)
+{
+    // ... 기존 로직
+	
+	// 방향에 맞는 GetUp 몽타주 재생
+	UAnimMontage* TargetMontage = bIsFaceDown ? GetUpFrontMontage : GetUpBackMontage;
+	UAnimInstance* AnimInst = MeshComp ? MeshComp->GetAnimInstance() : nullptr;
+	if (TargetMontage && AnimInst)
+	{
+		AnimInst->Montage_Play(TargetMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+        
+		FOnMontageEnded EndedDelegate;
+		EndedDelegate.BindUObject(this, &ASG_Character::OnGetUpMontageEnded);
+		AnimInst->Montage_SetEndDelegate(EndedDelegate, TargetMontage);
+	}
+	else
+	{
+		// 몽타주가 없는 예외 경우 복구
+		bIsRecoveringFromRagdoll = false;
+		MovementComp->SetMovementMode(EMovementMode::MOVE_Walking);
+	}
+	
+}
+```
+
+이 방법으론 해결되지 않았다.      
+
+**두 번째 시도**   
+래그돌 상태를 캡처한 후 일어서는 애니메이션과 자연스럽게 이어주는 방식을 적용해보았다.   
+
+
+```cpp
+// Character.cpp
+// 물리 끄기 직전 포즈 캡처
+void CacheRagdollPoseSnapshot();
+
+// Ragdoll 복구 상태(ABP에서 사용)
+UPROPERTY(BlueprintReadOnly, Category = "Ragdoll")
+bool bIsRecoveringFromRagdoll = false;
+```
+
+<br/>
+
+헤더에서 위의 함수와 변수를 만들어주고 활용했다.   
+
+<br/>
+
+```cpp
+// 1. AnimInstance에서 래그돌 포즈를 캡처한 것을 저장해준다.
+void ASG_Character::CacheRagdollPoseSnapshot()
+{
+	if (UAnimInstance* AnimInst = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInst->SavePoseSnapshot(FName("RagdollFinalPose"));
+	}
+}
+
+// 2. DisableRagdollInternal()에서 Ragdoll이 풀리기 전에 마지막 포즈를 저장해주고 Ragdoll 복구 변수를 true로 설정하여 ABP에서 캡처 값을 저장할 수 있게 만들어준다.
+void ASG_Character::DisableRagdollInternal(FVector TargetLocation, FRotator TargetRotation, bool bIsFaceDown)
+{
+    // ... 기존 코드
+	
+    // 시뮬레이션 끄기 직전 포즈 스냅샷 저장 (AnimBP 연결용)
+    CacheRagdollPoseSnapshot();
+	
+	bIsRecoveringFromRagdoll = true;
+	
+	// ... 기존 코드
+}
+```
+
+<br/>
+
+안타깝게도 이 방법도 소용없었다.   
+
+**세 번째 시도**   
+정말 단순한 부분을 건드려봤다. 바로 애니메이션 몽타주의 Blend In 옵션이었다. 0.1~ 0.5까지 래그돌에서 일어서는 몽타주를 잘 섞이기 위해서 조절을 해봤다. 근데 여기서 매우 충격적이게도 이 옵션이 원인이었다.   
+
+발생한 진짜 원인   
+`Blend In을 0.1이라도 설정하는 순간 StandUp 몽타주가 Idle 상태와 섞이려고 하는 것이었다.` 래그돌은 애니메이션이 아닌데 당연히 래그돌과 잘 섞이게 하려고 Blend In 옵션을 건드리지 않거나 오히려 늘렸는데 이부분이 원인이었다.   
+결국 Blend In을 0.0으로 설정해주는 순간 Idle과 섞이지 않기 때문에 며칠을 괴롭힌 위 현상이 말끔하게 사라졌다..!   
 
   </p>
 </details>
