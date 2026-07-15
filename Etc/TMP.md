@@ -10749,3 +10749,127 @@ void ASG_Character::DisableRagdollInternal(FVector TargetLocation, FRotator Targ
 
   </p>
 </details>
+
+#### <!-- 26.07.15 -->
+<details> 
+  <summary>26.07.15</summary>
+  <p>
+
+발생한 현상   
+기존에 테스트용으로 SG_GA_DropKick.cpp 내부에 넣어놨던 코드를 실제 `AttributeSet`의 Hp가 0이 될 때 래그돌이 되게 만들어주는 과정에서 기존 로직을 못 쓰게 됐다.   
+
+원인   
+`AttributeSet`에서 `PostGameplayEffectExecute()` 함수에서 실행하게 되는데 기존 로직에선 공격자와 피격자의 위치를 모두 계산할 수 있게 짰었는데 이 함수에선 어떻게 불러오지 못하고 있다.   
+
+해결방법   
+`Data.EffectSpec.GetEffectContext().GetEffectCauser()`를 사용하면 공격 유발자를 찾아올 수 있었다.   
+
+```cpp
+// 이렇게 불러올 수 있다. 엄청 편하다.
+AActor* Attacker = Data.EffectSpec.GetEffectContext().GetEffectCauser();
+```
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상   
+GA로 HitReact Montage를 실행하게 설계를 했는데 몽타주가 끝나고도 무적이 계속 지속되는 현상
+추가로 두번째 쓰러짐 이후 피 회복이 안되는 현상   
+
+원인   
+정확히 파악은 못했지만 수동으로 태그를 붙였다 뗐다 하다보니 내부 로직이 꼬인 것으로 추정   
+
+해결방법   
+EndAbility를 이용해서 GA가 끝날 때 확실하게 피 회복, 무적 해제를 해준다.   
+
+```cpp
+// OnHitReactEnded() 콜백 함수에서는 단순하게 EndAbility를 호출
+void UGA_SG_HitReact::OnHitReactEnded()
+{
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+// 기존 OnHitReactEnded() 함수에 있던 로직을 EndAbility에서 확실하게 실행시켜줘서 로직이 꼬이는것을 방지
+void UGA_SG_HitReact::EndAbility(
+	const FGameplayAbilitySpecHandle Handle, 
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility, 
+	bool bWasCancelled)
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (ASC)
+	{
+		// 무적 태그 해제
+		const FGameplayTag ImmunityTag = FGameplayTag::RequestGameplayTag(FName("State.Immunity"));
+		ASC->RemoveLooseGameplayTag(ImmunityTag);
+
+		// HP 회복
+		if (HasAuthority(&CurrentActivationInfo))
+		{
+			if (UGAS_SG_CharacterAttributeSet* AttributeSet = const_cast<UGAS_SG_CharacterAttributeSet*>(ASC->GetSet<UGAS_SG_CharacterAttributeSet>()))
+			{
+				const float MaxHp = AttributeSet->GetMaxHp();
+				AttributeSet->SetHp(MaxHp);
+			}
+		}
+	}
+	
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+```
+
+확실한 순서를 정해주니 자잘한 버그가 한 번에 해결됐다.   
+
+<br/>
+
+---
+
+<br/>
+
+Montage가 Play되는 GA를 실행할때 캐릭터 무브먼트를 통제하는 방법이 있다고 한다.   
+단순하게 Activate -> End Ability때 끄고 켜는 방식을 사용하려고 했는데 GAS의 태그를 활용하는 방법이 있어서 적용을 해보았다.   
+
+방법   
+Character의 Move 함수 등에 특정 태그가 있으면 실행하지 않도록(return) 설정을 해준다.   
+
+```cpp
+void ASG_Character::Move(const FInputActionValue& Value)
+{
+	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Immunity"))))
+	{
+		// 무적 상태(HitReact 발동 혹은 래그돌 후 일어나는 경우)일 땐 움직이지 못하게 한다.
+		return;
+	}
+	
+	// ... 기존 Move 코드
+}
+```
+
+진짜 너무 간단하게 구현할 수 있어서 좋은 방법 같다. 머리속에서 생각난 단순한 방법으로 하려면 GA의 시작, 끝에 직접 설정을 해줬어야 했는데 한수 배웠다.   
+
+<br/>
+
+---
+
+<br/>
+
+발생현상   
+디버깅용 Trace가 클라이언트에서 양쪽 발이 다 보임   
+서버나 다른 클라에서 발차기 하는건 드롭킥 기준 설정해놓은 오른쪽발이 아닌 왼쪽만 보임
+추가로 킥도 마찬가지
+
+정리 : 로컬에서는 서버/클라 둘 다 양쪽 발 디버깅됨   
+서버/클라에서 다른 클라 발차기 보면 왼쪽발만 디버깅됨   
+
+뭐지? 드롭킥은 오른발 킥은 왼발로 설정해둠
+근데 둘다 저따구로 같이뜸;
+
+기능상 문제는 전혀 없어서 나중에 다시 확인
+
+
+  </p>
+</details>
