@@ -10873,3 +10873,99 @@ void ASG_Character::Move(const FInputActionValue& Value)
 
   </p>
 </details>
+
+#### <!-- 26.07.16 -->
+<details> 
+  <summary>26.07.16</summary>
+  <p>
+
+프로젝트를 진행하면 늘 보는 UObject에 대해서 조금 더 알아보았다.   
+
+UObject는 언리얼 오브젝트에 대한 베이스 클래스입니다.   
+이 UObject에서 파생된 클래스에 UCLASS 매크로를 적어 UObject 처리 시스템이 인식하도록 할 수 있습니다.   
+UFUNCTION, UPROPERTY 같은 지정자 매크로가 표시된 함수와 프로퍼티만 UCLASS 내에 나열됩니다.   
+
+UObject는 생성자 실행 인자를 지원하지 않고 디폴트 생성자를 호출합니다.   
+생성자는 가벼워야 하고 디폴트 값과 서브오브젝트를 구성하는데만 사용되어야 합니다.   
+
+UObject 는 리플렉션 시스템의 일부이며 다양한 함수 기능을 제공합니다.   
+
+프로퍼티 자동 초기화 (프로퍼티를 0으로 자동으로 초기화)    
+프로퍼티 값 업데이트 (이미 배치된 오브젝트들의 변수값을 바꾸고 실행하면 자동으로 업데이트 해줌)    
+레퍼런스 자동 업데이트 (AActor/UActorComponent가 소멸되면 모든 레퍼런스를 null로 업데이트하여 댕글링 포인터를 막고 안정성을 높여주는 기능)    
+프로퍼티값들을 uasset, umap등에 저장하는 직렬화(Serialization)   
+오브젝트 사용 유무를 체크하고 관리하는 가비지 컬렉션이 있습니다.    
+
+
+자신이 어떤 UCLASS인지 명확히 알 고 있어서 IsA 키워드로 Class 식별 가능 및 Cast 사용하여 식별 및 형변환 가능    
+
+직렬화 커스텀 작동 방식이 필요한 경우, UObject::Serialize 함수를 덮어쓰면 됩니다.(작동 안하고 싶으면 지정자 매크로 안에 transient 넣어줌)    
+이러한 이점 대부분은 UObject와 동일한 리플렉션 및 직렬화 기능을 가진 UStruct에도 적용됩니다. UStructs는 값 타입으로 간주되며 가비지 컬렉션되지 않습니다.    
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상
+
+사운드가 로컬에서만 재생되는 현상   
+
+원인   
+`PlaySoundAtLocation`을 사용해서 로컬에서만 재생됨   
+
+```cpp
+// Sound 재생(로컬만 재생)
+if (BallKickSound)
+{
+    UGameplayStatics::PlaySoundAtLocation(this, BallKickSound, SoccerBall->GetActorLocation());
+}
+```
+
+해결방법   
+`PlaySoundAtLocation`를 `GameplayCue`의 내부에서 사용하면 자동으로 네트워크 전송이 된다.   
+
+```cpp
+// Sound 재생 대신 GameplayCue 실행
+if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+{
+    FGameplayCueParameters CueParams;
+    CueParams.Location = SoccerBall->GetActorLocation();
+    CueParams.TargetAttachComponent = SoccerBall->GetBallMesh();
+    
+    // 클라이언트에서 소리가 출력
+    ASC->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag(FName("GameplayCue.SoccerBall.Hit.Kick")), CueParams);
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+GAS와 몽타주 재생(UAbilityTask_PlayMontageAndWait)과 PlaySoundAtLocation의 관계   
+
+로컬 사운드만 들리는 문제를 해결하는중 몽타주에 연결된 AN 사운드는 어떻게 되는지 찾아보았는데 GAS의 `UAbilityTask_PlayMontageAndWait`로 실행되는 몽타주의 경우 모든 클라이언트로 재생되기 때문에 사운드도 전달된다고 한다.   
+단, 네트워크 지연에 따라 사운드가 조금 안 맞을수도 있다고 한다. 이 부분은 추후 테스트를 해보아야겠다.   
+
+```cpp
+// 
+UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+            this, NAME_None, KickMontage, 1.0f, NAME_None, true
+        );
+       
+if (PlayMontageTask)
+{
+    PlayMontageTask->OnCompleted.AddDynamic(this, &UGA_SG_Kick::K2_EndAbility);
+    PlayMontageTask->OnBlendOut.AddDynamic(this, &UGA_SG_Kick::K2_EndAbility);
+    PlayMontageTask->OnInterrupted.AddDynamic(this, &UGA_SG_Kick::K2_EndAbility);
+    PlayMontageTask->OnCancelled.AddDynamic(this, &UGA_SG_Kick::K2_EndAbility);
+            PlayMontageTask->ReadyForActivation();
+}
+```
+
+
+  </p>
+</details>
