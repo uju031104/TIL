@@ -10969,3 +10969,347 @@ if (PlayMontageTask)
 
   </p>
 </details>
+
+#### <!-- 26.07.20 -->
+<details> 
+  <summary>26.07.20</summary>
+  <p>
+
+나이아가라 시스템 적용하기   
+
+Build.cs에 나이아가라 추가하고 에셋 저장하는 변수와 에셋 가져올 수 있는 함수 만들어준 후 필요한 함수에서 불러와서 재생을 해준다.   
+
+```cpp
+// 기본 변수/함수 세팅
+protected:
+	//-------------------------------- 나이아가라 --------------------------------//
+	// 나이아가라 에셋
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
+	TObjectPtr<UNiagaraSystem> DropKickEffect;
+
+public:
+	FORCEINLINE UNiagaraSystem* GetDropKickEffect() const { return DropKickEffect; }
+
+// 실제로 가져와서 적용
+if (bIsDropKick)
+{
+	// Context에서 Hit Result 긁어오기
+	FGameplayEffectContextHandle Context = Data.EffectSpec.GetEffectContext();
+	const FHitResult* HitResult = Context.GetHitResult();
+        
+	FVector SpawnLocation;
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+
+	if (HitResult && HitResult->bBlockingHit)
+	{
+		SpawnLocation = HitResult->ImpactPoint;
+		// 타격면의 법선 벡터를 기준으로 이펙트 방향 설정
+		SpawnRotation = HitResult->ImpactNormal.Rotation();
+	}
+	else
+	{
+		// HitResult가 없다면 타겟 캐릭터의 위치(골반쯤)로 대체
+		SpawnLocation = TargetActor ? TargetActor->GetActorLocation() : FVector::ZeroVector;
+	}
+				
+	if (ASG_Character* TargetCharacter = Cast<ASG_Character>(TargetActor))
+	{
+		UNiagaraSystem* DropKickEffect = TargetCharacter->GetDropKickEffect();
+        // 지정한 위치에 나이아가라 이펙트 스폰    
+		if (DropKickEffect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				GetWorld(), 
+				DropKickEffect, 
+				SpawnLocation, 
+				SpawnRotation
+			);
+		}
+	}
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+나이아가라 이펙트가 타격 지점에서 재생되지 않는 현상   
+
+원인   
+HitResult가 비어있거나 HitResult에 타겟 정보가 제대로 들어있지 않거나 전달이 안됨    
+
+해결방법   
+HitResult를 Context에 바인딩해서 전달준비를 한다.
+
+```cpp
+// 애님 몽타주 충돌 이벤트로부터 HitResult를 추출해 Context에 바인딩(나이아가라 이펙트 실행 지점을 위해)
+if (Payload.ContextHandle.IsValid())
+{
+    const FHitResult* InsideHitResult = Payload.ContextHandle.GetHitResult();
+    if (InsideHitResult)
+    {
+        EffectContext.AddHitResult(*InsideHitResult);
+    }
+}
+
+// 위 코드로 없을 것으로 추정되는 HitResult를 가져왔으니 나이아가라 세팅 코드에 있는 아래의 조건문을 통과해야한다.   
+
+// Context에서 Hit Result 긁어오기
+FGameplayEffectContextHandle Context = Data.EffectSpec.GetEffectContext();
+const FHitResult* HitResult = Context.GetHitResult();
+        
+FVector SpawnLocation;
+FRotator SpawnRotation = FRotator::ZeroRotator;
+
+// 조건문 통과?
+if (HitResult && HitResult->bBlockingHit)
+	{
+		SpawnLocation = HitResult->ImpactPoint;
+		SpawnRotation = HitResult->ImpactNormal.Rotation();
+	}
+```
+
+발생한 현상   
+위 코드를 추가했지만 고쳐지지 않았다.   
+
+원인   
+높은 확률로 HitResult 자체가 비어있거나 존재하지 않는 듯 하다.   
+
+
+해결방법1   
+디버깅을 통해서 HitResult의 어떤 부분이 없는지 제대로 확인해본다.   
+
+<br/>
+
+
+```cpp
+// 디버깅용 코드 수정
+if (Payload.ContextHandle.IsValid())
+{
+    const FHitResult* InsideHitResult = Payload.ContextHandle.GetHitResult();
+    if (InsideHitResult)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[DropKick] Payload에 HitResult 존재: %s"), *InsideHitResult->ImpactPoint.ToString());
+        EffectContext.AddHitResult(*InsideHitResult);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[DropKick] ContextHandle은 유효하나 내부에 HitResult가 없음"));
+    }
+}
+else
+{
+    UE_LOG(LogTemp, Error, TEXT("[DropKick] Payload.ContextHandle 자체가 유효하지 않음"));
+}
+```
+
+디버깅 해봤더니 `[DropKick] Payload.ContextHandle 자체가 유효하지 않음`이 떴다. 그래서 정보가 어디서 전달되는지 확인을 해보았다.   
+
+해결방법2   
+실제로 trace를 쏘는 ANS로 들어가서 코드를 수정해준다.
+
+```cpp
+// ANS_SG_DropKick.cpp
+#include "AbilitySystemInterface.h"
+
+// NotifyTick 내부 수정
+void UANS_SG_DropKick::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime,
+	const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
+	
+	// ... 기존 코드
+
+	if (bHit && HitResult.GetActor())
+	{
+		// ... 기존 코드
+		
+		// 공격자의 ASC에서 Context를 만들고, 트레이스로 검출된 HitResult를 넣어준다.
+		if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(MyCharacter))
+		{
+			if (UAbilitySystemComponent* MyASC = ASCInterface->GetAbilitySystemComponent())
+			{
+				FGameplayEffectContextHandle ContextHandle = MyASC->MakeEffectContext();
+				ContextHandle.AddHitResult(HitResult); // 스피어 트레이스 결과물 추가
+				Payload.ContextHandle = ContextHandle;  // 페이로드에 심어주기
+			}
+		}
+
+		// ... 기존 코드
+	}
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상   
+GA_Kick을 사용중 GA_DropKick을 사용할 수 있고 반대로 GA_DropKick을 사용 중 GA_Kick을 사용할 수 있는 문제   
+
+원인   
+서로를 막을 수 있는 태그가 안붙어있다.   
+
+해결방법   
+
+`State.Attacking`이라는 태그를 하나 만들었다.   
+이걸 각 GA의 `Activation Owned Tags`와 `Activation Blocked Tags`에 넣어준다.   
+
+위 태그는 각각 GA를 실행하면 얻는 태그와 해당 태그가 있는 상태에서는 해당 태그가 있는 본인 혹은 다른 GA를 실행하지 못하게 블락하는 태그이다.   
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상   
+팀원들이랑 3대3으로 접속해서 테스트하는데 드롭킥을 맞고 래그돌이 된 후 일어섰을때 래그돌 상태에서 실행한 EnableRagdoll() 상태에서 못벗어나고 가만히 있는 버그 발생   
+
+원인   
+기존 코드는 5초이후 래그돌이 풀리게 설정됐다. 하지만 아이템으로 파워가 커지거나 특정 상황에서 래그돌을 맞고 높게 날아가버리면 
+
+해결방법   
+실제로 바닥에 닿고 속도가 0인 경우 래그돌이 풀리게 로직을 수정한다.   
+
+```cpp
+// Character.h에 전용 변수, 함수 추가
+protected:
+	// 래그돌 해제 체크를 위한 타이머 핸들
+	FTimerHandle RagdollCheckTimerHandle;
+
+	// 누적된 래그돌 시간 체크용 변수
+	float ElapsedRagdollTime = 0.0f;
+
+	// 주기적으로 안착 여부를 확인할 함수
+	void CheckRagdollLanding();
+
+// Character.cpp에 구현
+
+// 바닥에 착지하는 순간 래그돌 해제 및 몽타주 재생으로 변경
+// 래그돌 상태에서 바로 바닥에 쓰러지는 경우에도 최소 3초는 누워있게 보장
+void ASG_Character::CheckRagdollLanding()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		GetWorldTimerManager().ClearTimer(RagdollCheckTimerHandle);
+		return;
+	}
+
+	ElapsedRagdollTime += 0.2f;
+
+	// 최소 3초 동안은 무조건 날아가거나 누워있도록 보장
+	if (ElapsedRagdollTime < 3.0f)
+	{
+		return;
+	}
+
+	// 골반(Hips)의 현재 물리 속도(Velocity)를 확인
+	FVector HipsVelocity = MeshComp->GetPhysicsLinearVelocity(TEXT("Hips"));
+    
+	// Z축 낙하 속도와 수평 이동 속도가 거의 멈췄는지 체크
+	bool bIsSettled = HipsVelocity.Size() < 20.0f;
+
+	// 너무 오랫동안 공중에 떠서 안 멈춘다면 예외 처리로 10초 뒤에는 강제 기상
+	bool bTimeout = ElapsedRagdollTime >= 10.0f;
+
+	if (bIsSettled || bTimeout)
+	{
+		// 조건을 만족하면 타이머를 끄고 기상 프로세스 시작
+		GetWorldTimerManager().ClearTimer(RagdollCheckTimerHandle);
+		ServerDisableRagdoll();
+	}
+}
+```
+
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상   
+스피드업, 스피드다운 아이템 사용 시 실제 속도에 반영되지 않는 현상   
+
+원인   
+기존 코드   
+```cpp
+// 캐릭터에서 AttributeSet 변화할때 실행될 Delegate를 등록
+AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+	AttributeSet->GetSpeedAttribute()).AddUObject(this, &ASG_Character::OnSpeedChanged);
+	ApplySpeedChange(AttributeSet->GetSpeed());
+
+// 스피드값 바꾸는 함수들
+void ASG_Character::OnSpeedChanged(const FOnAttributeChangeData& Data)
+{
+	ApplySpeedChange(Data.NewValue);
+}
+
+void ASG_Character::ApplySpeedChange(float NewSpeed)
+{
+	GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
+}
+```
+
+<br/>
+
+위 코드를 사용했지만 `MaxWalkSpeed`가 기존 값으로 계속 덮어씌워지는 문제가 발생했다. 왜냐면 `CharacterMovementComponent`는 내부에 서버-클라이언트 간의 이동을 동기화하는 복잡한 네트워크 예측(Prediction) 로직이 들어있다. 그래서 단순히 통보하는 Delegate 방식을 사용했을 때 타이밍이 꼬이기 쉽다.   
+
+
+해결방법   
+실제로 AttributeSet 내부에서 **직접** 값을 바꿔준다.   
+
+```cpp
+// 값이 변하는순간 직접 값을 변경해준다.
+void UGAS_SG_CharacterAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue,
+	float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+	
+	// 변경된 어트리뷰트가 Speed
+	if (Attribute == GetSpeedAttribute())
+	{
+		// 소유하고 있는 캐릭터를 가져옴
+		ACharacter* OwningCharacter = Cast<ACharacter>(GetOwningActor());
+		if (OwningCharacter)
+		{
+			// 캐릭터 무브먼트 컴포넌트의 MaxWalkSpeed를 직접 750(NewValue)으로 변경
+			UCharacterMovementComponent* MoveComp = OwningCharacter->GetCharacterMovement();
+			if (MoveComp)
+			{
+				MoveComp->MaxWalkSpeed = NewValue;
+			}
+		}
+	}
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+발생한 현상   
+나이아가라 이펙트가 킥을 실행한 클라이언트와 맞은 클라이언트에서만 뜨고 나머지 클라에선 안뜨는 현상   
+
+원인   
+최신 시스템이라 GAS처럼 자동으로 복제를 해주는줄 알았지만 아니었다.   
+
+해결방법   
+기존에 사운드를 재생시켜주던 GC에 이펙트를 같이 넣어서 간단하게 해결완료   
+
+
+  </p>
+</details>
