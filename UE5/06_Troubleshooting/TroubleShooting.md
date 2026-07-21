@@ -531,7 +531,7 @@ void ASG_Character::OnGetUpMontageEnded(UAnimMontage* Montage, bool bInterrupted
 
 <br/>
 
-### [GAS] GA_DropKick을 맞고 날아가는(래그돌) 상태에서 다시 드롭킥에 피격되는 현상
+### [GAS] 래그돌이 해제되며 실행되는 몽타주가 비정상적으로 실행됨   
 
 <br/>
 
