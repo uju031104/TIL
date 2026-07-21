@@ -11313,3 +11313,19 @@ void UGAS_SG_CharacterAttributeSet::PostAttributeChange(const FGameplayAttribute
 
   </p>
 </details>
+
+#### <!-- 26.07.21 -->
+<details> 
+  <summary>26.07.21</summary>
+  <p>
+
+발표 자료 수정   
+
+래그돌 트러블 슈팅 추가   
+
+기타 트러블 슈팅 추가
+
+[TroubleShootiong](/UE5/06_Troubleshooting/TroubleShooting.md) 참고      
+
+  </p>
+</details>
