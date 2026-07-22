@@ -11329,3 +11329,56 @@ void UGAS_SG_CharacterAttributeSet::PostAttributeChange(const FGameplayAttribute
 
   </p>
 </details>
+
+#### <!-- 26.07.22 -->
+<details> 
+  <summary>26.07.22</summary>
+  <p>
+
+브로셔 추가 작성과 네트워크, 기술 로직 간단 정리
+
+**[Physics] 네트워크 환경에서 축구공의 물리 주도권 및 소유 시스템**
+
+핵심 메커니즘
+
+1. 충돌(드리블 혹은 스킬 사용)시 서버는 해당 클라이언트에게 소유권을 주고 물리엔진 주도권을 부여한다. (Owner Client에서 시뮬레이션)
+2. 소유권을 가진 클라이언트에서 RPC를 통해 서버에 공의 상태를 지속적으로 알린다.
+3. 서버는 전달받은 공의 상태를 자신의 공에 동기화하고 Remote로 복제를 한다.
+    - 불필요한 연산 낭비 및 충돌 꼬임을 막기 위해 remote는 물리를 켜지 않는다.
+4. Remote는 서버로부터 받은 공의 상태와 현재 공의 상태를 부드럽게 보간하여 동기화한다.
+    - 서버가 브로드캐스트해 주는 데이터를 기반으로 미래 위치를 예측하는 **데드 레코닝(Dead Reckoning)** 보간 로직을 수행한다.
+5. 특정 조건으로 인해 공이 소유권을 잃을 상황이 오면 서버가 소유권을 회수하고 물리엔진도 끈다.
+6. 공은 서버에 존재한 상태로 소유권을 줄 대상을 찾으며 대기한다.
+
+<br/>
+
+아이템   
+서버에서 재생 및 복제   
+-> 클라는 복제된 함수를 실행   
+-> 서버에서 데미지 처리 및 Impulse(LaunchCharacter를 사용해서 엔진이 자동으로 복제)   
+-> 클라에서 Impulse(캐릭터 밀려남)   
+
+래그돌   
+서버에서 재생 및 복제 
+-> 클라는 복제된 함수를 실행 후 각자 물리엔진으로 굴러감(래그돌)   
+-> 서버에서 위치 및 회전값을 클라에게 Multicast(물리가 켜지면 엔진이 위치전송을 지원하지 않아서 직접 Multicast 필요)   
+-> 클라는 서버의 위치 및 회전값을 가지고 래그돌 해제 애니메이션 실행   
+
+**구현한 캐릭터, GAS 로직 간단 정리**   
+
+1. 애니메이션 몽타주 재생   
+2. ANS_SG_DropKick(Sphere Trace로 충돌 감지)   
+   - [Payload에 FHitResult 저장 & Event 전송] (Character.Skill.DropKick)   
+3. UGA_SG_DropKick::OnGameplayEventReceived   
+   - A. 타겟이 축구공("Ball")인 경우   
+     - PushBall() 실행 -> 캐릭터 정면+상향(UpwardForceRatio) 벡터로 AddImpulse (물리 적용)   
+   - B. 타겟이 적 캐릭터(Other Team)인 경우 (서버 권한 검증)
+     - ApplyDamageToTarget() -> 무적(Immunity) 태그 검사 후 GameplayEffect 적용
+4. 적 캐릭터의 TargetASC
+   - Character.Skill.DropKick 태그를 포함한 GE 적용
+5. HP가 0이면
+   - Kick -> 피격 몽타주(GA_SG_HitReact) 재생
+   - DropKick -> 래그돌 활성화
+
+  </p>
+</details>
