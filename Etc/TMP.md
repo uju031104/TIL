@@ -11382,3 +11382,64 @@ void UGAS_SG_CharacterAttributeSet::PostAttributeChange(const FGameplayAttribute
 
   </p>
 </details>
+
+#### <!-- 26.07.23 -->
+<details> 
+  <summary>26.07.23</summary>
+  <p>
+
+USTRUCT()와 UCLASS()그리고 GC 내부의 알고리즘에 대해서 공부해봤다.   
+
+UStruct는 C++ 구조체처럼 데이터를 묶을 때 사용합니다. 기본적으로 가비지 컬렉션의 대상이 아니며 값을 전달하고 가볍습니다. 
+(단, 내부에 TObjectPtr나 UObject* 멤버가 있고 UPROPERTY()로 지정되면 내부에 포함된 객체 참주는 GC 추적이 가능합니다. UFUNCTION()은 사용 불가능합니다.)   
+
+엔진이 지원하는 에디터 편집, 직렬화, 블루프린트 연동, 네트워크 복제를 사용할 수 있습니다.   
+UClASS는 UObject 클래스에 대한 메타데이터를 담고있고 가비지 컬렉션의 대상입니다.    
+(StaticClass()로 확인 가능, NewObject<T>()나 SpawnActor<T>()로 생성하며, 언리얼의 가비지 컬렉터가 참조 여부를 추적해 메모리를 자동으로 해제합니다.)   
+
+UCLASS 는 클래스 디폴트 오브젝트(Class Default Object, CDO) 라는 하나의 인스턴스를 유지합니다. 개 객체를 만들때(NewObject<t>()) CDO를 복사해서 가져옵니다.   
+
+UClass 내부에는 클래스 이름, 부모 클래스, 함수 목록, Property 목록, Metadata, Blueprint 정보가 있습니다.
+UObject는 언리얼 오브젝트에 대한 베이스 클래스이고 UClass는 클래스를 표현하는 객체(Object)입니다.   
+메타데이터란 실제 데이터 값이 아니고 어떤 데이터들이 있는지 모아놓은 데이터(변수명들이 쫙 모여있는 느낌)
+
+ 
+GC의 알고리즘   
+
+Incremental GC(점진적 가비지 컬렉션)   
+GC Cluster   
+동작 원리: 부모-자식 관계가 명확한 객체 그룹(예: 파티클 효과, 복잡한 메시 컴포넌트 묶음, 인벤토리 아이템 묶음 등)을 하나의 '클러스터(덩어리)'로 묶어 버리는 알고리즘   
+-> 탐색속도 상승   
+
+Parallel Mark & Multi-threaded Sweep (병렬 마킹 및 멀티스레드 청소)   
+Parallel Mark: Root Set에서 출발해 참조 그래프를 탐색하는 과정을 Task Graph를 통해 여러 Worker 스레드에 분산시켜 동시 추적   
+
+Async/Incremental Purge: 메모리를 해제(Destructor 호출 등)하는 Sweep 단계 역시 별도의 비동기 스레드(FAyncPurge)에서 백그라운드로 처리하여 게임 플레이 프레임에 주는 영향을 최소화   
+
+Disregard for GC / GC Fast Path   
+프로젝트가 로드될 때 생성되어 게임이 끝날 때까지 절대로 파괴되지 않을 객체들(예: 프로젝트 기본 설정, UClass 메타데이터, 글로벌 데이터 테이블 등)은 아예 GC 탐색 배열에서 제외   
+
+'오래 사용하지 않은 데이터'를 정리하는 방식(`Least Recently Used`)은 주로 캐시(Cache) 시스템이나 가상 메모리 페이징 기법에서 쓰입니다.   
+
+[ 우리가 작성하는 C++ 코드 ]
+  - FVector / FMyStruct (USTRUCT) ───> UObject 상속 ❌ (순수 C++ 구조체)   
+  - UMyObject (UCLASS)           ───> UObject 상속 ⭕   
+
+UObject (엔진 최상위 메타 객체)   
+ └── UField (변수, 함수, 구조체 등 리플렉션 대상의 기본 단위)   
+		└── UStruct (멤버 변수나 함수 목록을 가질 수 있는 '구조적 타입'의 메타 정보, UStruct라는 클래스임 헷갈리면 안됨)   
+           ├── UScriptStruct (우리가 C++에서 USTRUCT()로 만드는 구조체의 메타 정보)   
+           ├── UFunction     (UFUNCTION() 함수의 메타 정보)   
+           └── UClass        (UCLASS() 클래스의 메타 정보)   
+
+
+
+
+
+
+
+  </p>
+</details>
+
+
+   
