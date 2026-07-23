@@ -891,7 +891,9 @@ MinNetUpdateFrequency = 33.0f;
 <br/>
 
 **1. 발생한 현상(1)**   
-- C++로 전환하고 움직임 복제, 브로드캐스트 빈도를 높였지만 여전히 공이 부드럽게 굴러가지 않고 뚝뚝 끊기거나 순간 이동(Jittering)하는 현상 발생했다.   
+- C++로 전환하고 움직임 복제, 브로드캐스트 빈도를 높였지만 여전히 공이 부드럽게 굴러가지 않고 뚝뚝 끊기거나 순간 이동(Jittering)하는 현상 발생했다.
+<img width="1781" height="1059" alt="Image" src="https://github.com/user-attachments/assets/64fd7b3f-cfff-46f3-a51d-72f44f6357ab" />
+떨림이 지속적으로 발생하고, 공을 찼을 때 매우 늦게 반응 (https://youtu.be/5wu-YXPqnnM)
 
 **2. 원인**   
 - `Replicated Movement`의 자체 최적화 스로틀링   
@@ -1186,7 +1188,9 @@ void ASG_SoccerBall::ResetOwnerCooldown()
 시속이 낮아져 거의 멈춰가거나(CurrentSpeed < 100.0f) 오차가 너무 클 때만 작동하도록 제한했다.      
 완전히 정지했을 때는 서버 위치로 즉시 이동(`SetWorldLocation`)시키고, 굴러가는 중일 때는 `VInterpTo`를 이용해 유저 눈에 띄지 않게 은근슬쩍 `서버 타임라인으로 보정(Blending)`하는 정밀 제어 코드를 구축했다.      
 - `NotifyHit` 컴포넌트 충돌 시점을 개편한다. 쿨다운(0.1초) 중이라도 현재 공을 계속 치며 달리는 주인이 나라면 `ReleaseOwner`타이머를 0.5초로 계속 연장(드리블 유지)시켜 로컬 연산권을 보장했다.      
-하지만 발에서 공이 떨어져 0.5초 동안 터치가 없으면 즉시 `ReleaseOwner()`를 호출하여 소유권을 서버에 안전하게 반납하도록 설계함. 공이 내 소유를 떠나는 순간 다시 서버의 정상적인 동기화 흐름 안으로 복귀시켰다.      
+하지만 발에서 공이 떨어져 0.5초 동안 터치가 없으면 즉시 `ReleaseOwner()`를 호출하여 소유권을 서버에 안전하게 반납하도록 설계함. 공이 내 소유를 떠나는 순간 다시 서버의 정상적인 동기화 흐름 안으로 복귀시켰다.
+<img width="1804" height="802" alt="Image" src="https://github.com/user-attachments/assets/258b3165-fd71-4ca5-817a-01e025df2b7c" />
+공의 Onwer와 Physics 테스트 (https://youtu.be/xEkqknyOdvs)
 
 <br/>
 
