@@ -11493,3 +11493,276 @@ Save / Load (유지성 데이터) 구축
   </p>
 </details>
    
+#### <!-- 26.08.03 -->
+<details> 
+  <summary>26.08.03</summary>
+  <p>
+
+C++에서 동시성(Concurrency) 제어를 위해 사용하는 주요 동기화 기법들   
+
+1.Mutex (상호 배제)   
+여러 스레드가 공유 자원에 동시에 접근하는 것을 막아 임계 영역(Critical Section)을 보호   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <mutex>
+
+int count_non_raii = 0;
+int count_raii = 0;
+std::mutex mtx;
+
+// 1) 비-RAII 방식(데드락이 발생할 위험 존재)
+void increment_non_raii() {
+    for (int i = 0; i < 10000; ++i) {
+        mtx.lock();
+        count_non_raii++; // 임계 영역
+        mtx.unlock();     // 수동 해제 (실수 가능성 존재)
+    }
+}
+
+// 2) RAII 방식 (권장)
+void increment_raii() {
+    for (int i = 0; i < 10000; ++i) {
+        // 스코프에 진입하며 lock, 스코프를 벗어나면 자동 unlock
+        std::lock_guard<std::mutex> lock(mtx);
+        count_raii++;
+    }
+}
+
+int main() {
+    std::thread t1(increment_non_raii);
+    std::thread t2(increment_non_raii);
+    std::thread t3(increment_raii);
+    std::thread t4(increment_raii);
+
+    t1.join(); t2.join(); t3.join(); t4.join();
+
+    std::cout << "Non-RAII Mutex Count: " << count_non_raii << '\n';
+    std::cout << "RAII Mutex Count: " << count_raii << '\n';
+}
+```
+
+<br/>
+
+2.Atomic (원자적 연산)   
+락(Lock)을 사용하지 않고 CPU 레벨의 원자적 명령어를 이용하여 경합을 방지하는 Lock-Free 기법   
+
+- 비-RAII 관점 (멤버 함수 사용): fetch_add(), load(), store() 등을 명시적으로 호출해 메모리 순서(Memory Order)나 동작을 제어   
+
+- RAII 관점 (연산자 오버로딩 활용): ++, +=, = 같은 일반 연산자처럼 사용한다. C++의 연산자 표현식이 내부적으로 안전하게 생성/소멸 주기 내에 원자적 처리를 완결짓는 형태   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <atomic>
+
+std::atomic<int> atomic_count(0);
+
+// 1) 명시적 멤버 함수 방식 (비-RAII 스타일 표현)
+void increment_explicit() {
+    for (int i = 0; i < 10000; ++i) {
+        // 원자적으로 1을 더함 (메모리 순서 지정 가능)
+        atomic_count.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+// 2) 연산자 오버로딩 방식 (RAII 스타일의 직관적 사용)
+void increment_operator() {
+    for (int i = 0; i < 10000; ++i) {
+        // 일반 변수처럼 연산하지만 내부적으로 원자적으로 처리됨
+        atomic_count++;
+    }
+}
+
+int main() {
+    std::thread t1(increment_explicit);
+    std::thread t2(increment_operator);
+
+    t1.join(); t2.join();
+
+    std::cout << "Atomic Count: " << atomic_count.load() << '\n';
+}
+```
+
+<br/>
+
+3.Semaphore (세마포어)   
+공유 자원에 동시에 접근할 수 있는 스레드의 개수(허가권)를 제한(C++20부터 <semaphore> 헤더로 표준 제공)   
+
+- std::counting_semaphore<N>: 최대 N개까지 접근 허용   
+
+- std::binary_semaphore: 최대 1개 접근 허용 (Mutex와 유사하지만, 다른 스레드가 해제할 수 있다는 차이가 있음)   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <semaphore>
+#include <chrono>
+
+// 동시에 최대 2개의 스레드만 접근을 허용하는 세마포어 (초기값 2)
+std::counting_semaphore<2> sem(2);
+
+void worker(int id) {
+    sem.acquire(); // 카운트 1 감소 (0이면 대기)
+    
+    std::cout << "[스레드 " << id << "] 자원 사용 중...\n";
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    
+    std::cout << "[스레드 " << id << "] 반납 완료.\n";
+    sem.release(); // 카운트 1 증가
+}
+
+int main() {
+    std::vector<std::thread> threads;
+
+    // 4개의 스레드를 생성하지만 세마포어에 의해 2개씩 순차 처리됨
+    for (int i = 1; i <= 4; ++i) {
+        threads.emplace_back(worker, i);
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+}
+```
+
+<br/>
+
+Volatile (휘발성 변수)   
+주의: C++에서 volatile은 동기화 기법이나 Thread-safe 도구가 아니다.   
+
+컴파일러의 최적화(변수를 레지스터에 캐싱하는 등)를 막고, 항상 실제 메모리 주소에서 값을 읽고 쓰도록 보장한다. 주로 하드웨어 제어기(MMIO)나 신호 처리기(Signal Handler)에서 사용   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <chrono>
+
+// 컴파일러가 loop 내에서 is_running을 레지스터에 캐싱하지 못하도록 함
+volatile bool is_running = true;
+
+void worker() {
+    std::cout << "Worker 시작...\n";
+    while (is_running) {
+        // is_running의 값이 변경되었는지 매번 실제 메모리에서 확인
+    }
+    std::cout << "Worker 종료!\n";
+}
+
+int main() {
+    std::thread t(worker);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    is_running = false; // 메인 스레드에서 상태 변경
+
+    t.join();
+}
+```
+
+<br/>
+
+`join()`은 메인 스레드의 진행을 잠시 멈추고, 지정한 스레드가 작업을 모두 마칠 때까지 대기하도록 한다.   
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <chrono>
+
+void do_work() {
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // 1초 동안 일함
+    std::cout << "자식 스레드 작업 완료!\n";
+}
+
+int main() {
+    std::thread t(do_work); // 새로운 스레드 생성 및 시작
+
+    std::cout << "메인 스레드: 자식 스레드가 끝날 때까지 기다립니다...\n";
+    
+    t.join(); // 🛑 t 스레드가 종료될 때까지 여기서 대기합니다.
+
+    std::cout << "메인 스레드: 안전하게 종료합니다.\n";
+    return 0;
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+FString, FName, FText 자주 보는 이 셋의 특징은 무엇인지 궁금해서 찾아보았다.   
+
+**1.FString (가변 문자열)**   
+`FString`은 C++ 표준 라이브러리의 `std::string`과 가장 유사한 조작 가능한 문자열 타입이다.   
+
+주요 용도   
+문자열 결합, 자르기, 검색, 디버그 로그 출력 (UE_LOG), 임시 텍스트 처리   
+
+특징   
+셋 중 유일하게 자유롭게 수정/조작(Mutable)이 가능하다.   
+
+메모리가 동적으로 할당되어 문자열 검색이나 비교 연산 시 메모리 overhead와 성능 비용이 상대적으로 가장 크다.   
+
+```cpp
+FString PlayerName = TEXT("Hero");
+PlayerName += TEXT("_V2"); // 문자열 결합 가능
+```
+
+<br/>
+
+**2.FName(식별자 및 태그)**   
+
+`FName`은 에셋, 컴포넌트, 태그, 본(Bone) 등의 식별 이름을 다루기 위해 디자인된 문자열 타입이다.   
+
+주요 용도   
+액터/컴포넌트 태그, 애니메이션 본(Bone) 이름, 에셋 경로 검색, 소켓 이름   
+
+특징   
+- 해시 테이블 기반: 입력된 문자열을 글로벌 이름 테이블(FName Table)에 등록하고 인덱스로 관리한다.   
+- 빠른 비교 속도: 문자열 전체를 하나씩 비교하는 대신 정수(ID) 비교를 수행하므로 연산 속도가 매우 빠르다.   
+- 대소문자 구분 없음: 기본적으로 대소문자를 구분하지 않는다.("MyTag"와 "mytag"는 동일하게 처리)   
+- 문자열을 중간에서 수정할 수 없다.   
+
+```cpp
+FName HeadBoneName = FName(TEXT("head_socket"));
+if (Comp->ComponentHasTag(HeadBoneName)) { ... }
+```
+
+<br/>
+
+**3. FText (지역화 및 UI 표시)**   
+
+FText는 사용자 화면(UI)에 출력되는 모든 텍스트를 담당하는 문자열 타입이다.   
+
+주요 용도   
+UI 텍스트(UMG), 퀘스트 설명, 아이템 이름, 숫자/날짜/통화 포맷팅   
+
+특징   
+- 다국어 지역화(Localization): 번역 키(Key) 및 네임스페이스를 내장하고 있어 다국어 지원 시스템과 직결된다.   
+
+- 다이나믹 포맷팅: 숫자나 변수 데이터를 언어별 규칙(예: 천 단위 콤마)에 맞춰 자동으로 변환해 준다.   
+
+- 메모리 변경 불가능(`Immutable`)에 가깝게 동작하므로 문자열 조작 연산용으로는 적합하지 않다.   
+
+```cpp
+FText GoldAmountText = FText::Format(
+    NSLOCTEXT("MyNamespace", "GoldKey", "소지금: {0} G"), 
+    1000
+);
+```
+
+<br/>
+
+**변환 팁(Conversion)**   
+FName $\rightarrow$ FString: Name.ToString()   
+FText $\rightarrow$ FString: Text.ToString()   
+FString $\rightarrow$ FName: FName(*String)   
+FString $\rightarrow$ FText: FText::FromString(String)   
+
+
+
+  </p>
+</details>
