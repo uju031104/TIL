@@ -11766,3 +11766,188 @@ FString $\rightarrow$ FText: FText::FromString(String)
 
   </p>
 </details>
+
+#### <!-- 26.08.04 -->
+<details> 
+  <summary>26.08.04</summary>
+  <p>
+
+캐릭터와 오브젝트 상호작용 설계   
+
+캐릭터가 채집, NPC, 제조대 등을 상호작용 하기위해 어떤 구조로 동작하면 좋을지 고민해보고 설계를 해보았다.   
+
+**1.인터페이스 기반 설계 (핵심)**
+
+`IInteractable` 같은 `UInterface`를 하나 만들고, 채집물/NPC/오브젝트가 전부 이걸 구현하게 한다.   
+
+```cpp
+UINTERFACE(BlueprintType)
+class UInteractable : public UInterface { GENERATED_BODY() };
+
+class IInteractable
+{
+public:
+    UFUNCTION(BlueprintNativeEvent)
+    void OnInteract(AActor* Interactor);
+
+    UFUNCTION(BlueprintNativeEvent)
+    FText GetInteractionPrompt(); // "채집하기", "대화하기", "제조대 사용" 등 UI 텍스트
+
+    UFUNCTION(BlueprintNativeEvent)
+    bool CanInteract(AActor* Interactor); // 조건 체크 (레벨, 아이템 소지 등)
+};
+```
+
+어떤 오브젝트인지 상관없이 캐릭터는 `OnInteract`만 호출하고 실제 동작은 각 오브젝트에서 실행하면 된다.   
+
+<br/>
+
+**2.캐릭터가 상호작용 가능한 오브젝트 감지**   
+
+캐릭터가 일정 주기로 `Trace`를 쏴서 `IInteractable` 액터를 찾는다.   
+- Timer로 0.1~ 0.2초 주기의 트레이스
+- 감지되면 상호작용 UI 표시(F: 채집하기)
+- 버튼 입력 시 액터의 `OnInteract` 호출
+
+액터를 감지하는 기능을 컴포넌트로 만들어서(`UInteractionComponent`) 캐릭터에 붙인다.   
+
+**3.GAS를 적용하는 시점**   
+
+모든 상호작용에서 GAS를 쓰는건 아니지만 무언가를 소모하거나 태그가 필요한경우 사용한다.   
+
+`OnInteract`에서 캐릭터의 GA_Gather(채집) 어빌리티를 트리거(필요 태그를 GA의 Tags로 걸어서, 이미 채집중이면 `CanInteract`가 false 반환)
+
+**4.나머지 오브젝트**   
+
+NPC   
+- `OnInteract`에서 `QuestManager Subsystem`에 NPC 상호작용을 요청한다.   
+- 퀘스트 수락/완료는 QuestManager가 처리하고 완료 후 보상 지급 시점에서 GE적용   
+
+공방 제조대   
+- `OnInteract`에서 포션 제조 UI 오픈(Widget)
+- 퍼즐 성공 시 위젯이 캐릭터의 GA_ BrewPotion 어빌리티 활성화 후 아이템 지급 및 애니메이션 재생   
+
+<br/>
+
+---
+
+<br/>
+
+**순수가상함수의 UFUNCTION 매크로의 지정자(Specifier)에 대한 고찰**   
+
+Interface를 `순수가상함수`로 만들면 빠르지만 C++로만 재정의가 가능하다는 단점이 있다.    
+이 부분에 대해서 생각해보니 팀원들 중에도 상호작용 가능한 오브젝트들의 작업을 BP로만 하는 경우가 생길텐데 이때를 대비해서 BP와 C++ 모두 오버라이드가 가능한 `BlueprintNativeEvent`를 사용해야 됨을 느꼈다.   
+이전에 배운적 있지만 늘 그렇듯 이론으로만 배우면 언제 써먹을지 감이 안오는데 인터페이스를 구현하면서 이걸 사용하는 이유를 바로 알게되었다.   
+
+```cpp
+// 모두 C++로 구현한다면 순수가상함수로 구현하면 된다.
+class IInteractable
+{
+public:
+    virtual void OnInteract(AActor* Interactor) = 0;
+    virtual FText GetInteractionPrompt() const = 0;
+    virtual bool CanInteract(AActor* Interactor) const = 0;
+};
+```
+
+<br/>
+
+하지만, 레벨 디자이너가 채집 나무, 부숴지는 상자 등을 BP로 빠르게 만들어낸다면?   
+블루프린트 액터도 오버라이드 할 수 있게 만들어준다.   
+
+```cpp
+// BP와 C++에서 모두 Override 가능하게
+UINTERFACE(BlueprintType)
+class UInteractable : public UInterface { GENERATED_BODY() };
+
+class IInteractable
+{
+    GENERATED_BODY()
+public:
+    UFUNCTION(BlueprintNativeEvent, Category="Interaction")
+    void OnInteract(AActor* Interactor);
+
+    UFUNCTION(BlueprintNativeEvent, Category="Interaction")
+    FText GetInteractionPrompt();
+
+    UFUNCTION(BlueprintNativeEvent, Category="Interaction")
+    bool CanInteract(AActor* Interactor);
+};
+
+// --- 호출하는 방법 ---
+
+// 블루프린트/C++ 구현 여부 신경 안 써도 됨
+IInteractable::Execute_OnInteract(Target, GetOwner());
+
+// 이렇게 직접 호출하면 안 됨 (블루프린트 오버라이드를 무시하게 됨)
+Target->OnInteract_Implementation(GetOwner());
+```
+
+<br/>
+
+---
+
+<br/>
+
+**의존성을 없애기 위한 Delegate**   
+
+상대의 존재를 알고 직접 불러와서 함수를 작동시키는 기존 방식 대신에 알아서 Broadcast 하는 Delegate 방식을 평소에 자주 쓰는데 사실 의존성을 생각한다기 보단 그냥 이게 편하니까, 그냥 쓰던데? 같은 느낌으로 사용해왔다.   
+
+하지만 이번엔 Component와 UI의 의존성을 없애는 확실한 기능을 생각하고 Delegate를 구현했다.   
+
+<br/>
+
+기본 방식   
+
+```cpp
+// 델리게이트 없이 직접 UI를 호출하는 방식
+UMyHUDWidget* HUD = Cast<UMyHUDWidget>(...); // UI를 직접 찾아와야 함
+HUD->SetPromptText(Prompt); // 직접 호출
+
+```
+
+<br/>
+
+Delegate
+
+```cpp
+// 의존성을 낮추는 Delegate
+OnPromptChanged.Broadcast(Prompt);
+
+// UI 위젯 쪽에서(BeginPlay 등에서) Bind만 해주면 된다.
+InteractionComp->OnPromptChanged.AddDynamic(this, &UMyHUDWidget::HandlePromptChanged);
+
+void UMyHUDWidget::HandlePromptChanged(FText Prompt)
+{
+    PromptTextBlock->SetText(Prompt);
+}
+```
+
+<br/>
+
+**오늘 작업한 부분 전체 흐름 정리**   
+
+```cpp
+[게임 시작]
+  캐릭터 스폰 → InteractionComponent 생성 (생성자)
+      ↓
+  InteractionComponent::BeginPlay()
+      → 0.15초 반복 타이머 시작 (자기 관리)
+      ↓
+  [매 0.15초]
+  PerformTrace() 실행
+      → 트레이스 쏴서 대상 감지
+      → CurrentTarget 갱신
+      → OnPromptChanged.Broadcast(...) → UI가 프롬프트 텍스트 갱신
+      ↓
+  [플레이어가 F키 입력]
+  ACPCharacter::OnInteractPressed()
+      → InteractionComponent->TryInteract() 호출
+          → CurrentTarget 있는지 확인
+          → CanInteract 체크
+          → OnInteract 실행 (여기서 GAS 어빌리티 트리거 등)
+```
+
+
+  </p>
+</details>
