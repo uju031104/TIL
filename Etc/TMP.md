@@ -11951,3 +11951,121 @@ void UMyHUDWidget::HandlePromptChanged(FText Prompt)
 
   </p>
 </details>
+
+#### <!-- 26.08.05 -->
+<details> 
+  <summary>26.08.05</summary>
+  <p>
+
+Trace를 캐릭터 기준으로 쐈을 때의 문제점   
+
+WASD로 직접 캐릭터를 움직여서 오브젝트 위치를 맞춰야하는 큰 불편함이 있다.   
+
+-> 카메라 기준으로 Trace를 쏘는 방식으로 변경이 필요..!   
+
+
+```cpp
+// BeginPlay()에서 카메라를 가져온다.
+
+ACPCharacter* Character = Cast<ACPCharacter>(GetOwner());
+if (!Character)
+{
+	return;
+}
+
+// Character의 Getter 함수 사용
+Camera = Character->GetFollowCamera();
+
+// Start, End 세팅
+FVector Start = Camera->GetComponentLocation();
+FVector End = Start + Camera->GetForwardVector() * TraceDistance;
+```
+
+이렇게 세팅 했을 때 문제점은 내가 생각한 것 보다 카메라에서 쏜 trace가 굉장히 낮아서 불편하다는 것이다.   
+
+그래서 카메라 기준으로 trace, 캐릭터 눈 기준으로 trace하는 방식이 있다고 해서 한 번 구현하고 테스트를 해보았다.   
+
+```cpp
+// 카메라 기준 LineTrace
+constexpr float CameraTraceDistance = 5000.f;
+
+const FVector CameraStart = Camera->GetComponentLocation();
+const FVector CameraEnd = CameraStart + Camera->GetForwardVector() * CameraTraceDistance;
+
+FHitResult CameraHit;
+
+const bool bCameraHit = World->LineTraceSingleByChannel(
+	CameraHit,
+	CameraStart,
+	CameraEnd,
+	ECC_Visibility,
+	QueryParams
+);
+
+const FVector AimPoint = bCameraHit ? CameraHit.ImpactPoint : CameraEnd;
+	
+// 캐릭터에서 조준 지점을 향해서 Trace
+	
+constexpr float TraceHeightOffset = 70.f;
+constexpr float SphereRadius = 50.f;
+
+const FVector CharacterLocation = GetOwner()->GetActorLocation();
+const FVector SphereStart = CharacterLocation + FVector(0.f, 0.f, TraceHeightOffset);
+FVector DirectionToAim = AimPoint - SphereStart;
+
+if (DirectionToAim.IsNearlyZero())
+{
+	ClearCurrentTarget();
+	return;
+}
+
+DirectionToAim.Normalize();
+	
+// 실제 상호작용 거리는 TraceDistance
+const FVector SphereEnd = SphereStart + DirectionToAim * TraceDistance;
+
+FHitResult InteractionHit;
+
+const bool bInteractionHit = World->SweepSingleByChannel(
+	InteractionHit,
+	SphereStart,
+	SphereEnd,
+	FQuat::Identity,
+	ECC_Visibility,
+	FCollisionShape::MakeSphere(SphereRadius),
+	QueryParams
+);
+```
+
+이렇게 하고 카메라 위치만 위로 올려주니 만족스러운 결과가 나왔다.   
+
+<br/>
+
+추가로 trace 하는 Debug Line을 에디터 콘솔창에서 껐다 켰다 할 수 있는 방법이 있는지 필요해서 찾아보았다.   
+
+전역 변수로 아래와 같이 만들어주고 디버깅 코드를 감싸주면 끝   
+
+```cpp
+// 에디터에서 콘솔창에 cp.Debug.Interaction를 입력해서 Debug On/Off 가능
+// cp.Debug.Interaction 1 --> Debug On
+// cp.Debug.Interaction 0 --> Debug Off 
+static TAutoConsoleVariable<bool> CVarDebugInteraction(
+	TEXT("cp.Debug.Interaction"),
+	false,
+	TEXT("Draw interaction trace debug lines\n")
+	TEXT("0: Disabled\n")
+	TEXT("1: Enabled"),
+	ECVF_Cheat
+);
+
+//
+#if ENABLE_DRAW_DEBUG
+	if (CVarDebugInteraction.GetValueOnGameThread())
+	{
+		// 디버깅 코드 ...
+	}
+#endif
+```
+
+  </p>
+</details>
