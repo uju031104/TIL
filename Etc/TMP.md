@@ -12566,6 +12566,35 @@ Leg IK
 Details창에 있는 여러 옵션과 기술을 통해서 다음 애니메이션과 가장 비용이 낮은 점수를 계산해서 그 점수 차이가 가장 적은 애니메이션을 다음 프레임으로 선택을 한다고 생각하면 된다.   
 
 
+  </p>
+</details>
+
+#### <!-- 26.08.11 -->
+<details> 
+  <summary>26.08.11</summary>
+  <p>
+
+언리얼 버전 차이에 따른 GASP의 Retarget 기능에서 에러가 나는 현상   
+
+```
+Blueprint Runtime Error: "Accessed None trying to read (real) property K2Node_DynamicCast_AsIKRetarget_IKChains_Controller in not an UClass". Node: SetSettings Graph: UpdateRetargetProfile Function: Update Retarget Profile Blueprint: ABP_GenericRetarget
+```
+
+1초에 5번씩은 위 에러 로그가 뜨는 상황이었다.   
+
+5.7버전인 GASP와 현재 프로젝트(5.8)의 Retarget System이 서로 충돌해서 이런 현상이 지속되는거였다.      
+
+기존에 `IK Goals/Chains` 중심이었지만 `Operation Stack` 중심으로 바뀌어서 ABP_GenericRetarget이 먹통이 된게 원인이었다.   
+
+참고 문헌(UE5.8에서의 Retargeting Operation Stack) : https://dev.epicgames.com/documentation/unreal-engine/retargeting-operation-stack-in-unreal-engine-5-8
+
+언리얼엔진 커뮤니티에 나와 같은 증상을 호소하는 글 : https://forums.unrealengine.com/t/ue-5-8-gasp-ikchain-retargeting-seems-broken/2732399/6
+
+커뮤니티의 답글에 있던 해결책을 적용해보았다.   
+Error가 나던 `Retarget IK Goals` 부분을 `Blend To Source`로 바꾸고 이거에 맞게 전체 BP를 다 수정했더니 드디어 Error 메세지가 뜨지 않고 정상적으로 작동을 했다.(감격...ㅠ)   
+
+
+
 
 
 
