@@ -12593,6 +12593,41 @@ Blueprint Runtime Error: "Accessed None trying to read (real) property K2Node_Dy
 커뮤니티의 답글에 있던 해결책을 적용해보았다.   
 Error가 나던 `Retarget IK Goals` 부분을 `Blend To Source`로 바꾸고 이거에 맞게 전체 BP를 다 수정했더니 드디어 Error 메세지가 뜨지 않고 정상적으로 작동을 했다.(감격...ㅠ)   
 
+  </p>
+</details>
+
+#### <!-- 26.08.12 -->
+<details> 
+  <summary>26.08.12</summary>
+  <p>
+
+```
+asset [AssetLog] C:\Users\would\Desktop\UE5\Projects\8th-Team10-Final-Project\Content\Characters\UEFN_Mannequin\Animations\MotionMatchingData\CHT_PoseSearchDatabases_Relaxed.uasset: No valid Context Object/Struct at index: 0
+```
+
+GASP Migrate 성공 이후 쓸 데 없는 것들(메타휴먼, 레벨, 다른 캐릭터, Mover 등)을 정리하는 과정에서 위의 에러가 떴다.   
+위 에러와 Mover 관련 에러가 떴었던걸 보면 Mover를 삭제하면서 Mover가 차지하던 index값이 비어서 난 에러로 추정된다.   
+
+-> Mover를 삭제했기 때문에 해당 파일을 삭제하면 해결   
+
+<br/>
+
+**Data Driven CVar**   
+
+코드에 하드코딩하지 않고, Project Settings에서 정의해서 런타임 콘솔로 바꿀 수 있는 전역 튜닝 변수이다.   
+즉, 실행중에 값을 바꿀 수 있다.   
+
+<br/>
+
+**CMC(Character Movement Compoenent)방식과 Mover 방식**   
+
+GASP에서 두 가지 방식 중 `Mover`가 마음에 들었지만 현재 언리얼엔진이 개발중이라 정보가 많이 부족하여 CMC방식을 채택하기로 했다.   
+(물론 5.8 버전에서 Mover가 Beta로 넘어와서 조금 더 발전했지만 안정적인 CMC로 결정)
+
+Mover를 사용하려다가 현재는 포기했다는 reddit의 글 : https://www.reddit.com/r/unrealengine/comments/1scukbm/mover_is_not_ready_just_a_heads_up/
+
+
+
 
 
   </p>
