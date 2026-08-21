@@ -12652,7 +12652,239 @@ Mover를 사용하려다가 현재는 포기했다는 reddit의 글 : https://ww
 굳이 실제로 하는 역할로 이름을 짓자면 `TNonNullSharedPtr` 내지 `TSharedPtrNotNull`이라고 보면 된다.   
 `Null` 체크 안해도 된다는 점을 시각적으로 확실히 주고 싶어서 `Ref`를 썼을 가능성이 높다고 한다.   
 
+  </p>
+</details>
 
+#### <!-- 26.08.14 -->
+<details> 
+  <summary>26.08.14</summary>
+  <p>
+
+Migrate한 MotionMatching이 적용된 캐릭터의 움직임이 너무 역동적인(움직이기 시작하는 0.5~ 1초정도) 문제 수정   
+
+**1.MotionMatching이 어떤 애니메이션을 선택하는지 Debug하기**   
+
+`Rewind Debugger`의 `Pose Search` 트랙을 보면 `Motion Matching`이 순간순간 어떤 pose를 골랐고 비용이 어떻게 나왔는지 확인 가능하다.   
+
+디버깅을 통해 PSD를 찾아서 reference를 찾아서 PSN이라는 것을 찾아냈다. 그래서 PSN에 PSD들이 들어있는것을 보고 찾아낸 PSD를 지워봤지만 결과는 똑같았다.   
+
+PSN이란?   
+`Pose Search Normalization Set`이며 정규화해주는 기능을 한다. 
+각 `PSD`는 가진 애니메이션의 움직임 범위가 전혀 다른데 이걸 비교하기 쉽게 하기 위해서 정규화 하는 것이다.   
+따라서 여기에 있는 PSD를 삭제한다고 해서 해당 애니메이션을 `Motion Matching`이 사용을 안한다는 뜻이 아니다..!!   
+
+PSN은 건드릴 필요가 없다.   
+
+| Asset       | 역할                                    |
+| ----------- | --------------------------------------- |
+| **PSD**     | 실제 애니메이션 검색 후보가 들어있는 DB |
+| **PSS**     | Pose를 어떤 특징/Weight로 비교할지 정의 |
+| **PSN**     | 여러 PSD의 Cost normalization 기준 통일 |
+| **Chooser** | 상황에 따라 어떤 PSD 등을 사용할지 선택 |
+
+결국 디버깅을 통해서 나온 해당 PSD에서 직접 애니메이션을 걸러내는 작업을 해야한다.(ㅠㅠ)    
+
+출발 애니메이션이 하나의 PSD에 있는 것이 아니라 여러개의 PSD에 있기 때문에 위에서 쓴 디버깅이 엄청난 도움을 주고 있다.   
+
+애니메이션 10개를 삭제했는데도 아직 약 10% 확률도 해당 애니메이션과 비슷한 것이 출력이 되고 있어서 디버깅 -> 해당 애니메이션 나오게 하기 -> 파일로 가기 -> Reference Viewer 열기 -> 어느 PSD인지 확인하고 가서 삭제하기   
+를 계속 하면서 하나하나 없애는 작업이 필요하다.   
+
+Turn 이후에 Sprint하는 애니메이션을 뺐더니 이부분만 또 어색해져버렸다.   
+
+생각해보니 Turn 이후 Sprint하는 애니메이션 시퀀스의 길이를 조절하면 되는거 아닌가..?   
+Turn 이후 역동적인 동작이 나오는 부분만 잘라서 진행해보았다.   
+
+
+
+  </p>
+</details>
+
+#### <!-- 26.08.20 -->
+<details> 
+  <summary>26.08.20</summary>
+  <p>
+
+기나긴 3D 모델 만들기 기간이 지나고 드디어 코드작업을 다시 시작했다.   
+
+**1.주워서 던질 수 있는 액터 세팅**   
+
+팀원이 원래 재료 cpp 하나로 재료와 포션 BP를 만드는 형식으로 구성해놨지만 기획이 바뀌면서 이 부분을 내가 수정하게 됐다.   
+
+```
+ACPThrowablePropBase
+├─ ACPAlchemyProp
+└─ ACPPotionActor
+```
+ACPAlchemyProp만 있었는데 이러한 구조로 바꾸는 작업을 진행   
+
+**2.액터를 부착할 위치**   
+
+옮기고 던질 액터를 일단은 머리 위에 부착시키기로 했는데 현재 사용하는 캐릭터가 GASP에서 Migrate한 캐릭터BP를 상속받았기때문에 CPP파일이 없다. 그래서 컴포넌트를 만들어서 부착하는 방법을 사용.   
+
+`UActorComponent`가 아니라 `USceneComponent`를 사용하기로 했다. 왜냐면 컴포넌트 자체가 `transform`을 가지기 때문에 머리에 부착시키기 좋기 때문이다.   
+
+오직 부착과 해제만 관여하고 물리 조작같은건 직접하지 않고 위에 만든 `CPThrowablePropBase`가 하도록 한다.   
+
+
+
+
+  </p>
+</details>
+
+#### <!-- 26.08.21 -->
+<details> 
+  <summary>26.08.21</summary>
+  <p>
+
+던지기 가능한 액터를 주워서 소유하고 있다가 키를 눌러 던지는 로직을 GAS와 Component로 만들기로했다.   
+
+전반적인 설계는 이렇다.   
+```
+F 상호작용
+→ InteractionComponent의 CurrentTarget 확인
+→ Event.Carry.Pickup을 캐릭터 ASC에 전달
+→ GA_CPPickupProp 활성화
+→ Payload.Target에서 Prop 획득
+→ CarryComponent.AttachProp()
+→ GA 종료
+
+투척 입력
+→ GA_CPThrowProp 활성화
+→ CarryComponent.HasHeldProp() 검사
+→ 카메라 방향 계산
+→ CarryComponent.ThrowHeldProp()
+→ GA 종료
+```
+
+<br/>
+
+글로만 배운 4대 캐스팅중 `const_cast`를 직접 사용해보았다.   
+
+`FGameplayEventData::Target`은 `const` AActor 포인터이다. 근데 월드에 있는 액터는 const가 아니므로 조작을 위해 변환을 해준다.   
+
+```cpp
+AActor* TargetActor = const_cast<AActor*>(TriggerEventData->Target.Get());
+```
+
+<br/>
+
+Avatar Actor와 Owner Actor의 차이는?   
+
+GAS에서 두 개를 분리하는 이유는 Ability를 소유하는 객체와 실제 게임 월드에서 Ability를 수행하는 객체가 다를 수 있기 때문이다.   
+
+| 구분         | 의미                                                       |
+| ------------ | ---------------------------------------------------------- |
+| Owner Actor  | ASC와 GA, GE, Attribute 등을 논리적으로 소유하는 액터      |
+| Avatar Actor | 월드에서 실제로 움직이고 애니메이션과 행동을 수행하는 액터 |
+
+
+
+<br/>
+
+---
+
+<br/>
+
+
+아래의 경고가 뜨는 문제   
+ 
+```
+CPPlayerAbilitySystemComponent.cpp(43, 10): [C4458] declaration of 'OwnerActor' hides class member
+```
+
+원인   
+`UAbilitySystemComponent` 부모 클래스에 이미 `OwnerActor`라는 멤버가 있는데, 함수 내부에서 똑같은 이름의 지역 변수를 선언해서 발생한 경고이다.   
+지역 변수가 부모 클래스의 OwnerActor를 가리는 `Shadowing` 상황이고, 현재 프로젝트는 이 경고를 에러로 처리하고 있다.   
+
+해결방법   
+지역 변수 이름을 OwningActor로 변경   
+
+<br/>
+
+---
+
+<br/>
+
+**GA를 활성화 할 수 있는 2가지 방법**   
+
+GA는 무조건 EventData를 전달하는 Trigger(Gameplay Event)를 통해서 실행되는 줄 알았다.   
+```
+TriggerEventData->EventTag
+TriggerEventData->Instigator
+TriggerEventData->Target
+TriggerEventData->EventMagnitude
+```
+
+이렇게 다양한 정보를 받을 수 있기 때문이다.   
+
+하지만, 이 방법말고 직접 활성화 하는 방법이 있었다.   
+
+```cpp
+AbilitySystem->TryActivateAbility(AbilityHandle);
+
+// 또는
+
+AbilitySystem->TryActivateAbilityByClass(
+    UGA_CPThrowProp::StaticClass()
+);
+```
+
+이 경우 EventData가 없기 때문에 정보는 적다. 하지만 일부 GA의 경우(현재 구현중인 투척 GA도 포함) 정보를 굳이 알 필요가 없기 때문에 이런 방식으로도 사용이 가능하다.   
+
+<br/>
+
+---
+
+<br/>
+
+
+머리에 부착시키는 순간 액터가 2배로 커지는 현상   
+
+원인   
+부모의 Actor의 기존 Scale을 가져다 쓰는 로직을 사용하고 있음   
+
+```cpp
+// 기존 코드에서는 Transform 자체를 덮어씌워버림
+SetActorHiddenInGame(false);
+SetActorRelativeTransform(HeldRelativeTransform);
+
+
+// Scale은 유지하도록 수정!
+SetActorHiddenInGame(false);
+
+SetActorRelativeLocation(HeldRelativeTransform.GetLocation());
+SetActorRelativeRotation(HeldRelativeTransform.Rotator());
+```
+
+<br/>
+
+연금술 재료가 바닥에서 미친듯이 굴러다니는 현상   
+
+물리적 세팅을 하지 않아서 발생함   
+
+
+해결방법   
+```cpp
+// 감쇠 기능을 위해서 새로문 변수 생성
+// 투척 후 선형 이동 감쇠
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Prop|Physics", meta = (ClampMin = "0.0"))
+float ThrowLinearDamping = 1.5f;
+
+// 투척 후 회전 감쇠
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Prop|Physics", meta = (ClampMin = "0.0"))
+float ThrowAngularDamping = 5.f;
+
+
+// 던지는 순간 감쇠 적용
+StaticMeshComponent->SetLinearDamping(ThrowLinearDamping);
+StaticMeshComponent->SetAngularDamping(ThrowAngularDamping);
+
+// 느려지면 멈추게 함
+StaticMeshComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
+StaticMeshComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+StaticMeshComponent->PutAllRigidBodiesToSleep();
+
+```
 
 
   </p>
