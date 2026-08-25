@@ -12889,3 +12889,37 @@ StaticMeshComponent->PutAllRigidBodiesToSleep();
 
   </p>
 </details>
+
+#### <!-- 26.08.25 -->
+<details> 
+  <summary>26.08.25</summary>
+  <p>
+
+**우클릭을 누르는 동안만 조준이 가능하게 만들기**   
+
+예전에 써본 `AbilityTask_WaitGameplayEvent`을 사용해서 다음 이벤트가 들어오길 기다리는상황(우클릭을 떼서 Aim을 풀게 되는)을 만들면 된다.   
+
+IA_AimStarted 와 IA_Aim Completed/Canceled 로 나눠서 구현   
+
+<br/>
+
+발생한 문제   
+GASP(Game Anim Sample Project)에서 가져온 캐릭터 BP를 상속받아서 사용하고 있는데 거기에 있는 Aim 기능을 그대로 사용하면서 위의 기능을 넣으려고 했지만 GASP에는 IA_Aim 단 하나만 존재.   
+
+그래서 GASP의 IA_Aim의 구조를 분석해보았다.   
+
+현재 IA_Aim 하나만 존재하고 Pressed 0.5s 그리고 Released 0.5s (둘 다 `Actuation Threshold` 판정값) 인 상태이다.   
+우클릭 누름 → Pressed가 Triggered   
+우클릭 뗌 → Released가 Triggered   
+
+그리고 BP에서 `Action Value(Bool)`를 끌어다 쓰는 구조이다.   
+
+그래서 기존의 각 IA마다 Event를 보내는 형식이 아닌 Action Value의 True/False에 각 Event를 보내는 방식으로 바꿨다.   
+
+기존 에임 기능은 Sequence Then 0에 연결해두고 Then 1에 Branch로 Action Value의 True/False값을 연결한 후 각 Event를 전달하는 방식으로 해결 완료.   
+
+<br/>
+
+
+  </p>
+</details>
