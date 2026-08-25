@@ -12920,6 +12920,37 @@ GASP(Game Anim Sample Project)에서 가져온 캐릭터 BP를 상속받아서 �
 
 <br/>
 
+Use GetAssetTags(). This is being made non-mutable, private and renamed to AssetTags in the future.   
+이라는 경고가 계속 뜨는 현상   
+
+원인  
+
+현재 쓰고있는 코드   
+```cpp
+AbilityTags.AddTag(GetAimAbilityTag());
+```
+
+아래로 설정하면 해결 완료.   
+
+```cpp
+FGameplayTagContainer AssetTags = GetAssetTags();
+AssetTags.AddTag(GetAimAbilityTag());
+SetAssetTags(AssetTags);
+```
+
+위 두가지의 차이는    
+기존의 방식은 `UGameplayAbility`의 `public` 멤버 변수인 `AbilityTags`에 직접 접근해서 수정을 한다.   
+
+하지만 UE에서 앞으로 `AbilityTags`를 `private`으로 바꾸고 이름도 `AssetTags`로 변경할 예정이라 지금 쓰는 방식이 나중엔 사용되지 못할 예정.   
+
+따라서    
+- 현재 Ability가 가진 Asset Tag를 복사
+- 복사본에 새 태그 추가
+- 변경된 컨테이너를 Ability에 적용
+
+순서로 코드를 작성해줘야함.   
+
+
 
   </p>
 </details>
