@@ -12951,6 +12951,98 @@ SetAssetTags(AssetTags);
 순서로 코드를 작성해줘야함.   
 
 
+  </p>
+</details>
+
+#### <!-- 26.08.26 -->
+<details> 
+  <summary>26.08.26</summary>
+  <p>
+
+Prop 교체 시 바닥에 떨구는 기능(Trace)을 추가했는데 벽면에서 교체 시 벽에 떨어지는 현상   
+
+바닥이면 괜찮은데 벽면이나 나무 기둥에서 교체를 하면 그 부분을 바닥으로 인식해서 공중에 떨어트리는 문제가 있음   
+
+바닥에 떨어진 액터와 지금 들고있는 액터를 교체하는 방식으로 구조를 바꾸기로 함   
+
+새로 설계할 구조   
+```
+새로 주울 Prop이 있던 X/Y 위치를 사용
+새 Prop의 Bounds 바닥 높이를 기준면으로 사용
+기존 Held Prop의 피벗부터 Bounds 바닥까지의 높이만큼 올림
+약간의 여유값을 추가하여 바닥 박힘 방지
+```
+
+<br/>
+
+**1.매개변수 변경**
+먼저 기존 `MakeReplacementDropLocation` 함수의 매개변수에 NewProp이 없었는데 추가를 해서 부착되기 전에 바닥에 떨어져있던 해당 위치를 계산할 수 있게 한다.   
+
+```cpp
+// CPCarryComponent.cpp
+
+bool UCPCarryComponent::ReplaceHeldProp(ACPThrowablePropBase* NewProp)
+{
+    // ... 기존 내용
+
+    if (IsValid(PreviousHeldProp))
+    {
+        // NewProp이 부착되기 전에 원래 위치 기준으로 계산
+        const FVector DropLocation = MakeReplacementDropLocation(PreviousHeldProp, NewProp);
+
+        if (!DropHeldProp(DropLocation))
+        {
+            return false;
+        }
+    }
+    
+    return AttachProp(NewProp);
+}
+```
+
+<br/>
+
+**2.실제 교체 함수 내부 로직 수정**   
+
+```cpp
+// CPCarryComponent.cpp
+FVector UCPCarryComponent::MakeReplacementDropLocation(const ACPThrowablePropBase* PreviousHeldProp, const ACPThrowablePropBase* NewProp) const
+{
+    if (!IsValid(PreviousHeldProp) || !IsValid(NewProp))
+    {
+        return GetComponentLocation();
+    }
+
+    FVector PreviousBoundsOrigin;
+    FVector PreviousBoundsExtent;
+    PreviousHeldProp->GetActorBounds(true, PreviousBoundsOrigin, PreviousBoundsExtent);
+
+    FVector NewBoundsOrigin;
+    FVector NewBoundsExtent;
+    NewProp->GetActorBounds(true, NewBoundsOrigin, NewBoundsExtent);
+
+    const FVector PreviousActorLocation = PreviousHeldProp->GetActorLocation();
+
+    // 기존 Held Prop의 피벗에서 Bounds 중심까지 생긴 X/Y 차이
+    const FVector PreviousBoundsOffset = PreviousBoundsOrigin - PreviousActorLocation;
+
+    FVector DropLocation;
+
+    // 기존 Held Prop의 Bounds 중심이 NewProp의 Bounds 중심 위치에 오도록 정렬
+    DropLocation.X = NewBoundsOrigin.X - PreviousBoundsOffset.X;
+    DropLocation.Y = NewBoundsOrigin.Y - PreviousBoundsOffset.Y;
+
+    // 새로 주울 Prop이 서 있던 바닥 높이
+    const float TargetFloorZ = NewBoundsOrigin.Z - NewBoundsExtent.Z;
+
+    // 기존 Held Prop의 피벗에서 Bounds 바닥까지의 거리
+    const float PreviousBottomOffset = PreviousActorLocation.Z - (PreviousBoundsOrigin.Z - PreviousBoundsExtent.Z);
+
+    DropLocation.Z = TargetFloorZ + PreviousBottomOffset + ReplacementDropClearance;
+
+    return DropLocation;
+}
+```
 
   </p>
 </details>
