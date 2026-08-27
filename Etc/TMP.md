@@ -13046,3 +13046,79 @@ FVector UCPCarryComponent::MakeReplacementDropLocation(const ACPThrowablePropBas
 
   </p>
 </details>
+
+#### <!-- 26.08.27 -->
+<details> 
+  <summary>26.08.27</summary>
+  <p>
+
+현재 조준 방식에서 오는 문제점   
+
+오브젝트와 상호작용할 때 근처에 크기가 큰 오브젝트가 있다면 해당 오브젝트가 먼저 상호작용돼서 불편함   
+
+현재 조준방식   
+1.카메라 기준으로 정확히 정 중앙으로 LineTrace를 쏴서 Hit되는 오브젝트가 Interactable 인터페이스를 가지고 있다면 상호작용 UI가 뜸   
+2.캐릭터 기준으로 해당 Hit 부분과 연결하여 거리를 재고 이 거리를 상호작용 할 수 있는 거리 계산에 사용함.(카메라와의 거리가 아닌 실제 캐릭터와 오브젝트 사이의 거리를 측정함)   
+
+문제는 `SweepSingleByChaane`이다.   
+Sphere 범위에 들어온 후보중에 엔진이 판단하여 하나만 반환을 해버린다.   
+
+이로 인해서 발생하는 문제점들   
+- 작은 재료를 보고 있어도 옆의 큰 액터가 먼저 걸림
+- 큰 액터는 Collision 면적이 넓어서 주변 액터와의 상호작용을 방해함
+- 첫 번째 충돌이 상호작용 불가능한 액터라면 뒤쪽을 찾지 않음   
+- Sphere를 키우면 단일 선택은 쉽지만 여러개가 있을 때 오차가 심함   
+- Sphere를 줄이면 정밀해지지만 작은 물건을 집기 어려움   
+
+**단계1**   
+
+상호작용 불가능한 오브젝트 뒤에 상호작용 가능한 오브젝트가 있을 때 집을 수 있게 Single에서 Multi로 변경   
+
+```cpp
+// Multi로 바꼈으니 TArray로 바꿔준다.
+TArray<FHitResult> InteractionHit;
+
+const bool bInteractionHit = World->SweepMultiByObjectType(
+	InteractionHit,
+	SphereStart,
+	SphereEnd,
+	FQuat::Identity,
+	ECC_Visibility,
+	FCollisionShape::MakeSphere(SphereRadius),
+	QueryParams
+	);
+
+// SphereRadius는 기존처럼 50으로 유지한다.
+```
+
+<br/>
+
+**단계2**   
+
+여러가지 판정으로 상호작용할 액터를 고른다.   
+
+| 함수                            | 기능                                          |
+| ------------------------------- | --------------------------------------------- |
+| `SelectBestInteractionTarget()` | 여러 액터 중 실제 상호작용할 대상 하나를 선택 |
+| `GetInteractionFocusLocation()` | 조준을 위한 기준이 되는 위치를 계산           |
+| `HasLineOfSightToTarget()`      | 액터가 벽이나 다른 액터에 가려졌는지 확인     |
+| `CalculateInteractionScore()`   | 화면 중앙과 떨어진 거리를 이용해 점수 계산    |
+| `UpdateCurrentTarget()`         | 선택된 대상의 하이라이트·프롬프트·참조를 갱신 |
+| `UCPInteractionComponent()`     | 기본 탐색 Object Type을 설정                  |
+
+
+```
+중복 액터 제거
+→ CPInteractable 확인
+→ CanInteract 확인
+→ 카메라 정면 범위 확인
+→ 가림 여부 확인
+→ 점수 계산
+→ 최고 점수 액터 반환
+```
+
+
+
+
+  </p>
+</details>
