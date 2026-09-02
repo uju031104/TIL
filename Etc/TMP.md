@@ -13122,3 +13122,130 @@ const bool bInteractionHit = World->SweepMultiByObjectType(
 
   </p>
 </details>
+
+#### <!-- 26.09.02 -->
+<details> 
+  <summary>26.09.02</summary>
+  <p>
+
+조사, 채집중에 캐릭터가 움직이면 취소되도록 하고 싶은데 현재 GASP에서 받아온 캐릭터는 내부 로직이 다소 복잡해서 무브먼트를 잠그는 방식이 통하지 않음(BP를 보면 각 무브먼트 변수들을 직접 덮어씌우는 함수들이 10개정도 존재해서 그렇다)   
+
+-> 해결방법은 생각보다 매우 간단했다.   
+캐릭터의 현재 위치를 저장한 후 상호작용 중에 해당 위치를 일정거리 이상 벗어나면 취소되게 바꾸면 된다.   
+
+너무 복잡하게 생각하지 말고 때론 단순하게 생각하자.   
+
+```cpp
+// 거리 계산할 때 DisSquared를 사용하는데 제곱근을 구하지 않아서 성능상 이점이 있음   
+
+const float MovedDistanceSquared = FVector::DistSquared(InteractionStartLocation, Interactor->GetActorLocation());
+
+// 비교하는 값도 제곱을 해주면 된다
+return MovedDistanceSquared > FMath::Square(InteractionCancelDistance);
+```
+
+<br/>
+
+조사/채집 몽타주 재생 중 카메라를 움직이면 몽타주가 카메라 무빙에 그대로 따라오는 현상(자세가 고정이 안됨)   
+
+원인   
+GASP의 캐릭터에서 AnimBP의 Look/Aim이 몽타주를 덮어씌우고 있음.   
+
+해결방법   
+
+1.현재 사용하는 캐릭터 스켈레톤으로 들어가서 Montage Slot을 만들어준다.   
+-> 지금 사용하는 스켈레톤말고 부모 캐릭터의 스켈레톤에서 만들어야함!   
+```
+이런 형태
+(Group)Interaction
+└─ (Slot)InteractionFullBody
+```
+
+이렇게 새로운 Slot을 만들어준 후 이 Slot은 덮어씌워지지 않게 OutPose바로 직전에 연결해준다.   
+-> 채집/조사 몽타주가 여기서 실행되게 세팅하면 됨   
+
+<br/>
+
+하지만 해결되지 않음.   
+
+그래서 GASP 캐릭터의 BP를 분석해보았는데 Rotation을 관리하는 함수를 발견하였다.   
+
+여기서 평소에 bOrientRotationToMovement를 false로 만들어주고 있는데 true로 바꾸고 조사/채집 테스트를 해보니 몽타주가 회전하지 않고 잘 작동하였다.   
+
+몽타주를 재생하는 코드에 CharacterMovement를 불러와서 해당 변수를 true로 하고, completed/cancelled에서 false로 다시 바꿔주는 로직을 작성했다.   
+
+하지만...
+부모 BP에서 해당 값을 매우 빠르게 덮어씌워버리는 현상이 발생했다.   
+
+그래서 부모의 BP의 해당 함수가 오버라이드 가능한지 확인을 했고, 오버라이드 가능해서 현재 기능을 넣고 재정의하기로 했다.   
+
+```
+Update Rotation_PreCMC
+→ Parent Update Rotation_PreCMC
+→ CPInteractionComponent
+→ Is Timed Interaction Active
+→ Branch
+    └ True
+       → CharacterMovement
+       → Set Orient Rotation to Movement(true)
+```
+
+이렇게 했지만 또 문제가 발생했다.   
+
+상호작용이 끝나는 순간 카메라 회전 방향으로 캐릭터가 회전해버리는 현상이 있다.   
+
+해결방안으로 상호작용이 끝났을 때가 아닌 조사/채집 몽타주가 실제로 끝났을 때 복구를 하는 방향으로 로직을 짜보기로 했다.   
+
+```
+몽타주 2개가 재생중인지 확인하는 값을 받고
+
+Get Mesh
+→ Get Anim Instance
+→ Montage Is Playing(InspectMontage)
+
+Get Mesh
+→ Get Anim Instance
+→ Montage Is Playing(HarvestMontage)
+
+
+기존 노드에 이렇게 연결을 해주었다.
+
+Update Rotation_PreCMC
+→ Parent Update Rotation_PreCMC
+→ IsTimedInteractionActive
+   OR IsInspectMontagePlaying
+   OR IsHarvestMontagePlaying
+→ Branch
+    └ True
+       → Set Orient Rotation to Movement(true)
+```
+
+하지만 조금 더 부드러워졌을뿐 기존처럼 카메라만 따로 움직이는 기능이 제대로 되지 않았다.   
+
+<br/>
+
+결국 지금까지 했던 작업은 다 없애고 다시 기초로 돌아가서 Rotation을 세팅하기로 했다.   
+
+ABP내부의 Rotation Mode관련 함수로 들어가서 구조를 파악해보았다.   
+
+```
+1. Is Slot Active에서 몽타주 재생 여부 확인
+2. true면 Release
+3. false면 Accumulate
+```
+
+Release는 쌓여 있던 Root 회전 보정을 Actor/Capsule 방향으로 되돌리는 모드라서 몽타주 재생 시 캐릭터가 카메라 방향으로 돌아간다.   
+
+Release 대신 둘 다 Accumulate로 하면 돌아가는 현상은 없지만 조사/채집하는 순간 캐릭터가 해당 방향으로 회전하지 못하는 문제가 있다.   
+
+그래서 상호작용하는 bool 변수와 카메라 Lock 변수를 추가해서 이것저것 해봤지만 결국 근본적인 문제를 고치는게 제일 중요했다.(계속해서 아주 미세한 오작동이 있음)   
+
+회전이 문제라서 채집을 할 때 채집물 방향으로 확실하게 회전을 시킨 후 조사/채집 및 몽타주 재생을 하도록 바꿔보기로 했다.   
+
+
+
+
+
+
+  </p>
+</details>
