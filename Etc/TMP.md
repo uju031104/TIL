@@ -13243,8 +13243,15 @@ Release 대신 둘 다 Accumulate로 하면 돌아가는 현상은 없지만 조
 회전이 문제라서 채집을 할 때 채집물 방향으로 확실하게 회전을 시킨 후 조사/채집 및 몽타주 재생을 하도록 바꿔보기로 했다.   
 
 
+  </p>
+</details>
 
+#### <!-- 26.09.03 -->
+<details> 
+  <summary>26.09.03</summary>
+  <p>
 
+[TroubleShooting 작성](/UE5/06_Troubleshooting/TroubleShooting.md) 
 
 
   </p>

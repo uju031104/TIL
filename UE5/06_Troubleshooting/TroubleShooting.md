@@ -353,7 +353,7 @@ void AZombieAIController::OnPossess(APawn* InPawn)
 
 <br/>
 
-# 8th-Team11-CH4-Project
+# 8th-Team12-CH4-Project
 
 <br/>
 
@@ -1662,5 +1662,102 @@ void ASG_Character::CheckRagdollLanding()
 - 서버가 래그돌의 시작과 끝에서 `Multicast`를 해주면 `Ragdoll`의 흐물거리는 특성상 오차가 많이 발생한다.     
 - 눈에 띄는 오차를 발생시키는 `캐릭터의 위치와 골반의 회전값`을 서버만 계산을 하여 `Multicast` 해주고 해당 값을 기준으로 클라이언트에서 래그돌 해제 후 일어나는 몽타주를 재생시키니 동기화가 매우 자연스럽게 진행됐다.   
 
-
+# 8th-Team10-CH6-Project
    
+<br/>
+
+## Motion Matching 관련 트러블 슈팅
+
+<br/>
+
+### [MM] GASP(Game Animation Sample Project)에서 현재 프로젝트로 Migrate할 때 발생한 Retargeting 오류
+
+**1. 발생한 현상**   
+- UE 5.7 기반 Game Animation Sample Project의 캐릭터 시스템을 UE 5.8 프로젝트로 이전한 뒤, 런타임에서 다음 오류가 반복적으로 발생   
+
+```
+Blueprint Runtime Error:
+Accessed None trying to read property
+K2Node_DynamicCast_AsIKRetarget_IKChains_Controller
+
+Node: SetSettings
+Graph: UpdateRetargetProfile
+Blueprint: ABP_GenericRetarget
+```
+
+약 1초에 5회씩 오류가 출력되었으며, `ABP_GenericRetarget`의 Retarget Profile 갱신 기능도 정상적으로 작동하지 않았다.
+
+
+**2. 원인**   
+- UE 5.8에서 IK Retargeter가 모듈형 Retarget Operation Stack 구조로 개편되었다. 기존의 IKRetargetIKChainsOp는 여러 개의 독립적인 Operation으로 분리되었지만, UE 5.7 기반 ABP_GenericRetarget은 여전히 기존 Retarget IK Goals Operation과 Controller를 찾고 있었음     
+
+따라서, 아래의 상태가 됐다.
+```
+기존 Operation 검색
+→ 해당 Controller를 찾지 못함
+→ Dynamic Cast 결과가 None
+→ SetSettings에서 None 참조
+→ Runtime Error 반복 
+```
+
+참고: UE 5.8의 Retarget Stack은 FK Chains, Pelvis Motion, Pole Vector Alignment 등의 Operation을 조합하는 구조다. (https://dev.epicgames.com/documentation/unreal-engine/retargeting-operation-stack-in-unreal-engine-5-8)
+
+
+**3. 해결방법**    
+- ABP_GenericRetarget의 Retarget Profile 갱신 로직을 UE 5.8 구조에 맞게 수정했다.
+
+```
+기존: Retarget IK Goals
+변경: Blend to Source
+```
+
+주요 변경 사항:
+
+- Operation 검색 이름을 Retarget IK Goals에서 Blend to Source로 변경   
+- Controller 타입을 IKRetargetBlendToSourceController로 변경
+- 기존 설정 필드를 새로운 Blend to Source 설정 형식에 맞게 교체
+- 더 이상 존재하지 않는 기존 설정 참조 제거
+- Pole Vector Alignment 설정도 새로운 Operation 구조에 맞게 연결
+
+<br/>
+
+---
+
+<br/>
+
+### [MM] Migrate 이후 과하게 역동적인 샘플 애니메이션 문제
+
+**1. 문제 상황**   
+
+- GASP의 Motion Matching에는 역동적인 출발·정지·회전 애니메이션이 많음
+- 프로젝트의 정적인 분위기와 맞지 않음
+- State Machine처럼 현재 재생 중인 애니메이션을 쉽게 특정하기 어려운 상황
+- Pose Search Database에서 의심되는 애니메이션을 임의로 제거하는 방식은 비효율적임
+
+**2. 원인 분석**   
+
+Rewind Debugger로 플레이 상황을 녹화한 뒤 문제가 발생한 시점으로 되돌아가서 다음 항목을 확인
+
+- 당시 선택된 Pose Search Database
+- Motion Matching이 선택한 Animation Sequence
+- 선택된 정확한 재생 프레임
+
+**3. 해결방법**   
+
+```
+문제 동작 재현
+→ Rewind Debugger로 기록
+→ 문제가 발생한 프레임으로 이동
+→ Motion Matching이 선택한 애니메이션 확인
+→ 해당 Animation Sequence 및 구간 특정
+→ 과도한 구간을 잘라내거나 검색 대상에서 제외
+→ 애니메이션 테스트
+```
+
+**4. 결과**    
+
+- 실제 런타임에서 선택된 애니메이션과 프레임을 정확하게 추적
+- 프로젝트 분위기와 맞지 않는 역동적인 동작만 선별적으로 수정
+- 기존 Motion Matching 구조는 유지하면서 원하는 움직임으로 조정
+
+
