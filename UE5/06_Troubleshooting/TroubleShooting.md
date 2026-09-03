@@ -1684,6 +1684,9 @@ Node: SetSettings
 Graph: UpdateRetargetProfile
 Blueprint: ABP_GenericRetarget
 ```
+<img width="1851" height="1183" alt="Image" src="https://github.com/user-attachments/assets/ecdcb8ac-abe7-467c-96d7-3846057fe3d0" />
+<br><br>
+
 
 약 1초에 5회씩 오류가 출력되었으며, `ABP_GenericRetarget`의 Retarget Profile 갱신 기능도 정상적으로 작동하지 않았다.
 
@@ -1710,6 +1713,10 @@ Blueprint: ABP_GenericRetarget
 기존: Retarget IK Goals
 변경: Blend to Source
 ```
+
+<img width="788" height="562" alt="Image" src="https://github.com/user-attachments/assets/6e2c8734-4246-4093-9a73-31339f87f91b" />
+
+<br><br>
 
 주요 변경 사항:
 
@@ -1753,6 +1760,25 @@ Rewind Debugger로 플레이 상황을 녹화한 뒤 문제가 발생한 시점�
 → 과도한 구간을 잘라내거나 검색 대상에서 제외
 → 애니메이션 테스트
 ```
+
+Rewind Debugger로 기록, Animation Sequence 확인   
+(영상: https://www.youtube.com/watch?v=HpP1LJ_zWFs)   
+<img width="2031" height="1131" alt="Image" src="https://github.com/user-attachments/assets/e7a78edf-9803-401c-bc75-827fa4fec46f" />
+<br><br>
+Rewind Debugger로 해당 AS가 어떤 Pose Search Data에 들어가있는지 확인   
+<img width="1187" height="996" alt="Image" src="https://github.com/user-attachments/assets/16f0f28c-3e4b-4675-8b1d-371bf03399c4" />
+<br><br>
+해당 PSD가 속해있는 PSN확인   
+<img width="1718" height="907" alt="Image" src="https://github.com/user-attachments/assets/0e896aa2-044b-46c8-8c44-1c5b0947b8b1" />
+<br><br>
+PSN은 정규화를 시켜주는 기능을 해서 PSD를 제외해봤으나 큰 성과를 얻지 못함   
+<img width="1375" height="757" alt="Image" src="https://github.com/user-attachments/assets/fe1710b3-b2f0-452b-bba4-5d770be46b39" />
+<br><br>
+PSD내부에서 직접 AS를 골라내어 PSD에서 제외시키거나 AS의 일부를 잘라냄   
+(영상: https://www.youtube.com/watch?v=tD3oIHVUgJY)   
+<img width="1851" height="1136" alt="Image" src="https://github.com/user-attachments/assets/2af9b6d9-4096-441a-ab5e-09cde3698691" />
+<br><br>
+
 
 **4. 결과**    
 
