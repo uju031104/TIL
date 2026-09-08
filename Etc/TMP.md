@@ -13293,3 +13293,93 @@ Tick을 켜서 보정도 해봤는데 정말 단순한 문제였다. 부모의 M
 
   </p>
 </details>
+
+#### <!-- 26.09.08 -->
+<details> 
+  <summary>26.09.08</summary>
+  <p>
+
+State Tree 의 Task를 직접 cpp로 만들어서 State Tree와 연동   
+
+AI가 사용할 데이터를 담을 구조체를 먼저 만들어준다.   
+```cpp
+USTRUCT()
+struct CREATEPOTION_API FCPSTTask_FindPatrolLocationInstanceData
+{
+	GENERATED_BODY()
+
+	// StateTree의 AIController Context와 연결
+	UPROPERTY(EditAnywhere, Category = "Context")
+	TObjectPtr<ACPEnemyAIController> AIController = nullptr;
+
+	// Patrol 반경
+	UPROPERTY(EditAnywhere, Category = "Parameter", meta = (ClampMin = "1.0", Units = "cm"))
+	float PatrolRadius = 500.f;
+
+	// Move To Task에 전달할 목적지
+	UPROPERTY(EditAnywhere, Category = "Output")
+	FVector PatrolLocation = FVector::ZeroVector;
+};
+```
+
+<br>
+
+그리고 STTack를 만들어주는데 위의 구조체를 ST에서 볼 수 있게(타입만) 리플렉션 정보를 넘겨준다.   
+
+```cpp
+USTRUCT(meta = (DisplayName = "CP Find Patrol Location", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTTask_FindPatrolLocation : public FStateTreeTaskCommonBase
+{
+	GENERATED_BODY()
+
+	// 별명을 지어줘서 코드사용 용이하게
+	using FInstanceDataType = FCPSTTask_FindPatrolLocationInstanceData;
+
+	FCPSTTask_FindPatrolLocation()
+	{
+		bShouldCallTick = false;
+	}
+
+	// 여기가 구조체 타입 정보를 넘겨주는 ST가 제공하는 가상함수이다.
+	virtual const UStruct* GetInstanceDataType() const override
+	{
+		return FInstanceDataType::StaticStruct();
+	}
+
+	virtual EStateTreeRunStatus EnterState(
+		FStateTreeExecutionContext& Context,
+		const FStateTreeTransitionResult& Transition) const override;
+};
+```
+
+<br>
+
+Tree 구조   
+| 설정할 상태 | Trigger            | 이동할 상태 |
+| ----------- | ------------------ | ----------- |
+| Patrol      | On State Failed    | Wait        |
+| Move        | On State Completed | Wait        |
+| Wait        | On State Completed | Patrol      |
+
+실제 EnterState에서 마지막 Return을 보면 위 형태가 이해가 된다.   
+
+```cpp
+EStateTreeRunStatus FCPSTTask_FindPatrolLocation::EnterState(
+	FStateTreeExecutionContext& Context,
+	const FStateTreeTransitionResult& Transition) const
+{
+	// ... Location을 찾는 코드
+
+	// 목적지가 유지되도록 부모 Task는 실행 상태로 유지.
+	// 실제 이동 완료 여부는 Move To가 판단.
+	return EStateTreeRunStatus::Running;
+}
+```
+
+즉, 이동이 끝날 때까지 목적지의 위치 데이터를 유지하면서 이동을 한다.   
+Task 내부에서 데이터를 유지하기 위한 선택이다.   
+
+
+
+  </p>
+</details>
