@@ -13354,6 +13354,12 @@ struct CREATEPOTION_API FCPSTTask_FindPatrolLocation : public FStateTreeTaskComm
 
 <br>
 
+이렇게 하면 ST에서 아래와 같이 정보를 볼 수 있다.
+<img width="763" height="190" alt="Image" src="https://github.com/user-attachments/assets/144f72ba-f54e-4efa-8163-bfe62c83bee8" />
+
+<br>
+<br>
+
 Tree 구조   
 | 설정할 상태 | Trigger            | 이동할 상태 |
 | ----------- | ------------------ | ----------- |
@@ -13379,6 +13385,10 @@ EStateTreeRunStatus FCPSTTask_FindPatrolLocation::EnterState(
 즉, 이동이 끝날 때까지 목적지의 위치 데이터를 유지하면서 이동을 한다.   
 Task 내부에서 데이터를 유지하기 위한 선택이다.   
 
+<br>
+
+ST 구조   
+<img width="458" height="266" alt="Image" src="https://github.com/user-attachments/assets/412b18b5-cbc1-41fd-bfe6-9ab4fe94b9ea" />
 
 
   </p>
