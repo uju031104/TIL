@@ -13383,3 +13383,116 @@ Task 내부에서 데이터를 유지하기 위한 선택이다.
 
   </p>
 </details>
+
+#### <!-- 26.09.09 -->
+<details> 
+  <summary>26.09.09</summary>
+  <p>
+
+슬라임의 나이아가라 이펙트(그을림, 얼음 등)가 슬라임 본체에도 적용되는 현상   
+
+Receives Dacals 옵션을 체크 해제하면 해결!   
+
+<br>
+
+---
+
+<br>
+
+적의 플레이어 감지 범위 설계   
+
+어느 방향이든 감지하는 범위와 적의 시야각에 들어왔을 때 감지하는 범위를 다르게 설계했다.   
+
+```cpp
+// 360도 인식 가능한 범위
+UPROPERTY(EditAnywhere, BlueprintReadWrite)
+float NearDetectionRadius = 300.f;
+// 적의 시야각에서 인식 가능한 범위
+UPROPERTY(EditAnywhere, BlueprintReadWrite)
+float FrontDetectionRadius = 500.f;
+// 시야각
+UPROPERTY(EditAnywhere, BlueprintReadWrite)
+float FrontDetectionHalfAngle = 50.f;
+```
+
+<br>
+
+계산을 최소화 하기 위해서 바로 내적을 사용한 시야각 계산을 하지 않고 300범위 이상이고 시야각의 범위(500)안에 들어왔을 때만 계산하도록 하였다.   
+
+```cpp
+// 최초 발견시에만
+if (!bHasTarget)
+{
+    const FVector ToPlayer = PlayerLocation - EnemyLocation;
+    const float DistanceSquared = ToPlayer.SizeSquared2D();
+    const FVector DirectionToPlayer = ToPlayer.GetSafeNormal2D();
+    const FVector EnemyForward = EnemyPawn->GetActorForwardVector().GetSafeNormal2D();
+
+    const float Dot = FVector::DotProduct(EnemyForward, DirectionToPlayer);
+    const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(FrontDetectionHalfAngle));
+    const bool bInFrontCone = Dot >= CosThreshold;
+
+    const bool bInDetectionRange = DistanceSquared <= FMath::Square(NearDetectionRadius) || (DistanceSquared <= FMath::Square(FrontDetectionRadius) && bInFrontCone);
+
+    if (!bInDetectionRange)
+    {
+        return;
+    }
+}
+```
+
+<br>
+
+범위내에 들어왔다면(bInDetectionRange가 true) Trace를 하여 적과 플레이어 사이에 장애물이 있는지 확인을 먼저 한 후 없다면 TargetActor를 설정하고 마지막 위치를 저장해놓는다.   
+
+<br>
+
+---
+
+<br>
+
+StateTree에서 속성이 바인딩 목록에 나타나지 않는 현상   
+
+```cpp
+// ST에 뜨지 않음
+UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|AI")
+TObjectPtr<UCPEnemyDetectionComponent> DetectionComponent;
+```
+
+원인은 protected로 선언했기 때문이었다.   
+그대로 놔두고 meta = (AllowPrivateAccess = "true") 를 추가해주니 ST에서 바인딩이 잘 된다.   
+
+<br>
+
+---
+
+<br>
+
+오늘 설계 및 구현을 마친 State Tree 정리   
+
+```
+Root
+├── Patrol
+│   ├── Task: CP Find Patrol Location
+│   └── Move
+│       └── Task: Move To → PatrolLocation
+├── Wait
+│   └── Task: Delay 2초
+├── Chase
+│   └── Task: Move To → TargetActor
+├── ChaseRetry
+│   └── Task: Delay 2초
+└── Return
+    └── Task: Move To → HomeLocation
+```
+
+- Patrol : HomeLocation 주변의 무작위 지점을 선정하고, 이동 후 잠시 대기. 목적지 선정 Task는 Running을 반환해 부모 상태를 유지하고, 자식 Move가 이동 완료를 판단.
+- Detect : 감지 컴포넌트(CPEnemyDetectionComponent)가 타이머(0.1초마다)로 검사. 최초 발견은 근거리 전방위(360도)와 원거리 전방 부채꼴(100도)을 합쳐 판단하며, Line Trace로 장애물 가림을 확인.
+- Chase : Patrol·Wait에서 타깃을 발견하면 Chase로 전환. 발견 후에는 장애물 뒤에 숨어도 추적을 유지. 자식 Move 실행 중에도 부모 Patrol의 전환 조건을 검사하므로 즉시 추적을 시작.
+- Retry : 추적 이동이 완료되면 ChaseRetry에서 잠시 대기한 뒤 다시 시도. 즉시 완료·재진입이 반복되는 것을 방지.
+- Return : 플레이어가 HomeLocation 기준 추적 허용 범위를 벗어나면 타깃을 해제하고 복귀. 복귀 중에도 최초 발견 조건을 충족하면 다시 추적.
+  
+  
+
+  </p>
+</details>
