@@ -13401,6 +13401,12 @@ ST 구조
 
 슬라임의 나이아가라 이펙트(그을림, 얼음 등)가 슬라임 본체에도 적용되는 현상   
 
+<br>
+
+<img width="843" height="611" alt="Image" src="https://github.com/user-attachments/assets/a5dc8186-9b1e-480b-96ce-c9dac4dc6ce1" />
+
+<br>
+
 Receives Dacals 옵션을 체크 해제하면 해결!   
 
 <br>
@@ -13501,8 +13507,12 @@ Root
 - Chase : Patrol·Wait에서 타깃을 발견하면 Chase로 전환. 발견 후에는 장애물 뒤에 숨어도 추적을 유지. 자식 Move 실행 중에도 부모 Patrol의 전환 조건을 검사하므로 즉시 추적을 시작.
 - Retry : 추적 이동이 완료되면 ChaseRetry에서 잠시 대기한 뒤 다시 시도. 즉시 완료·재진입이 반복되는 것을 방지.
 - Return : 플레이어가 HomeLocation 기준 추적 허용 범위를 벗어나면 타깃을 해제하고 복귀. 복귀 중에도 최초 발견 조건을 충족하면 다시 추적.
+
+<br>
   
-  
+  <img width="755" height="465" alt="Image" src="https://github.com/user-attachments/assets/4ec404fd-d5eb-4417-a6c4-8d0275b8b68a" />
+
+<br>
 
   </p>
 </details>
