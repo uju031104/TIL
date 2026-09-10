@@ -13516,3 +13516,52 @@ Root
 
   </p>
 </details>
+
+#### <!-- 26.09.10 -->
+<details> 
+  <summary>26.09.10</summary>
+  <p>
+
+어제 구현한 Patrol은 Task의 InstanceData 를 바인딩해서 전달했다.    
+오늘은 Condition에도 InstanceData를 만들어 조건을 검사하게 했다.   
+
+```cpp
+// 공격 가능 조건에서 사용할 데이터
+USTRUCT()
+struct CREATEPOTION_API FCPSTCondition_CanAttackInstanceData
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, Category = "Context")
+    TObjectPtr<ACPEnemyCharacter> Enemy = nullptr;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<AActor> TargetActor = nullptr;
+};
+
+USTRUCT(meta = (DisplayName = "CP Can Attack", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTCondition_CanAttack : public FStateTreeConditionCommonBase
+{
+    GENERATED_BODY()
+
+    using FInstanceDataType = FCPSTCondition_CanAttackInstanceData;
+
+    virtual const UStruct* GetInstanceDataType() const override
+    {
+        return FInstanceDataType::StaticStruct();
+    }
+
+    virtual bool TestCondition(FStateTreeExecutionContext& Context) const override;
+};
+```
+
+<br>
+
+아래와 같이 ST의 Condition에 뜨게 된다.   
+
+
+
+
+
+  </p>
+</details>
