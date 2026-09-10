@@ -13563,6 +13563,67 @@ struct CREATEPOTION_API FCPSTCondition_CanAttack : public FStateTreeConditionCom
 
 <br>
 
+현재 Enemy Attack의 흐름   
+
+AttackTask   
+- EnterState() : EnemyCharacter의 TryStartAttack()호출. 성공 시 Running, 실패 시 Failed 반환.
+- Tick() : 공격중(IsAttacking)이면 Running유지. 종료되면 정상/비정상 유무 반환.   
+- ExitState() : CancelAttack()으로 정리.   
+  
+공격의 State는 EnemyCharacter가 관리하고 Task는 해당 State를 확인하며 기다리는 역할.   
+
+그리고 Task 성공 유무만 확인하고 공격의 명중은 Notify에서 판단한다.(ApplyAttackHit에서 빗나감/공격 판단)   
+
+
+<br>
+
+몽타주의 BlendOut 혹은 몽타주가 끝나는 시점에 델리게이트 바인딩을 할 수 있다.   
+
+BlendingOut을 이용해서 공격이 끝날쯤 추가 타격을 차단하고 몽타주가 종료될 때 다양한 상태를 해제하였다.   
+
+```cpp
+// 블렌드아웃이 시작되면 Hit Notify를 차단
+FOnMontageBlendingOutStarted BlendOutDelegate;
+BlendOutDelegate.BindUObject(this, &ACPEnemyCharacter::HandleAttackBlendingOut);
+
+AnimInstance->Montage_SetBlendingOutDelegate(BlendOutDelegate, AttackMontage);
+
+// 정상 종료와 중단을 구분
+FOnMontageEnded EndDelegate;
+EndDelegate.BindUObject(this, &ACPEnemyCharacter::HandleAttackEnded);
+
+AnimInstance->Montage_SetEndDelegate(EndDelegate, AttackMontage);
+
+// 블렌드아웃 바인딩 함수
+void ACPEnemyCharacter::HandleAttackBlendingOut(UAnimMontage* Montage, bool bInterrupted)
+{
+    if (Montage != AttackMontage.Get())
+    {
+        return;
+    }
+
+    bAttackHitEnabled = false;
+}
+
+// 몽타주 End 바인딩 함수
+void ACPEnemyCharacter::HandleAttackEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+    if (Montage != AttackMontage.Get() || !bIsAttacking)
+    {
+        return;
+    }
+
+    bIsAttacking = false;
+    bAttackHitEnabled = false;
+    bLastAttackCompletedNormally = !bInterrupted;
+    AttackTarget.Reset();
+
+    if (GetWorld())
+    {
+        NextAttackAllowedTime = GetWorld()->GetTimeSeconds() + AttackCooldown;
+    }
+}
+```
 
 
   </p>
