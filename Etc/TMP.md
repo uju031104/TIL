@@ -13628,3 +13628,184 @@ void ACPEnemyCharacter::HandleAttackEnded(UAnimMontage* Montage, bool bInterrupt
 
   </p>
 </details>
+
+#### <!-- 26.09.14 -->
+<details> 
+  <summary>26.09.14</summary>
+  <p>
+
+현재 상태에서 플레이어가 죽으면 막타를 친 슬라임이 승리 포즈(티배깅)를 재생하게 하려면 어떻게 해야 할지 설계를 해봤다.   
+
+먼저 가장 단순하게 OnDeath 델리게이트에 바인딩을 하는 방법이다. 이 방법은 간단하지만 모든 슬라임이 재생을 하게되는 단점이 있다.   
+
+따라서, 슬라임에 몽타주 재생 함수를 만들고 Causer가 해당 함수를 재생하는 또 다른 함수를 만들어서 바인딩 시켜주면 된다.   
+
+하지만, 현재 StateTree를 쓰고 있는데 플레이어가 죽는 순간 State가 Return으로 바뀌고 복귀를 하게 된다. 따라서, Victory라는 State를 추가하고 STTask도 추가하여 해당 Task에서 몽타주를 실행하고(Victory상태가 되는 EnterState) Return으로 바꿔주는 로직이 필요해졌다.   
+
+Attack에서 Return(Priority: High)으로 가던 것을 Victory State일 경우 Victroy 상태로 가도록 수정   
+
+이전에 만든 Attack과 구조를 비슷하게 가져갔다.   
+
+```cpp
+// CPSTTask_Victory.h
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "StateTreeConditionBase.h"
+#include "StateTreeTaskBase.h"
+#include "CPSTTask_Victory.generated.h"
+
+class ACPEnemyCharacter;
+
+// 정보를 담을 구조체인데 Attack과 달리 Context의 Enemy만 연동시키면 된다. 
+USTRUCT()
+struct CREATEPOTION_API FCPSTCondition_VictoryInstanceData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Context")
+	TObjectPtr<ACPEnemyCharacter> Enemy = nullptr;
+};
+
+USTRUCT(meta = (DisplayName = "CP Victory", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTCondition_Victory : public FStateTreeConditionCommonBase
+{
+	GENERATED_BODY()
+
+	using FInstanceDataType = FCPSTCondition_VictoryInstanceData;
+
+	virtual const UStruct* GetInstanceDataType() const override
+	{
+		return FInstanceDataType::StaticStruct();
+	}
+
+	// 조건을 체크하는 로직
+	virtual bool TestCondition(FStateTreeExecutionContext& Context) const override;
+};
+
+// Task도 마찬가지로 Enemy만 필요하다.
+USTRUCT()
+struct CREATEPOTION_API FCPSTTask_VictoryInstanceData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Context")
+	TObjectPtr<ACPEnemyCharacter> Enemy = nullptr;
+};
+
+USTRUCT(meta = (DisplayName = "CP Victory", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTTask_Victory : public FStateTreeTaskCommonBase
+{
+	GENERATED_BODY()
+
+	using FInstanceDataType = FCPSTTask_VictoryInstanceData;
+
+	FCPSTTask_Victory()
+	{
+		bShouldCallTick = true;
+	}
+
+	virtual const UStruct* GetInstanceDataType() const override
+	{
+		return FInstanceDataType::StaticStruct();
+	}
+
+	// Attack과 마찬가지로 Enter, Tick, Exit 상태를 모두 관리한다.
+	virtual EStateTreeRunStatus EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const override;
+	virtual EStateTreeRunStatus Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const override; 
+	virtual void ExitState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const override;
+};
+```
+
+Attack의 헤더를 기준으로 작성한 후 보니 구조체가 2개일 필요가 없다고 판단하였다.   
+따라서, 아래와 같이 구조체를 하나로 통합해주었다.   
+
+```cpp
+// CPSTTask_Victory.h
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "StateTreeConditionBase.h"
+#include "StateTreeTaskBase.h"
+#include "CPSTTask_Victory.generated.h"
+
+class ACPEnemyCharacter;
+
+USTRUCT()
+struct CREATEPOTION_API FCPSTVictoryInstanceData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Context")
+	TObjectPtr<ACPEnemyCharacter> Enemy = nullptr;
+};
+
+USTRUCT(meta = (DisplayName = "CP Victory", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTCondition_Victory : public FStateTreeConditionCommonBase
+{
+	GENERATED_BODY()
+
+	using FInstanceDataType = FCPSTVictoryInstanceData;
+
+	virtual const UStruct* GetInstanceDataType() const override
+	{
+		return FInstanceDataType::StaticStruct();
+	}
+
+	virtual bool TestCondition(FStateTreeExecutionContext& Context) const override;
+};
+
+USTRUCT(meta = (DisplayName = "CP Victory", Category = "Enemy"))
+struct CREATEPOTION_API FCPSTTask_Victory : public FStateTreeTaskCommonBase
+{
+	GENERATED_BODY()
+
+	using FInstanceDataType = FCPSTVictoryInstanceData;
+
+	FCPSTTask_Victory()
+	{
+		bShouldCallTick = true;
+	}
+
+	virtual const UStruct* GetInstanceDataType() const override
+	{
+		return FInstanceDataType::StaticStruct();
+	}
+
+	virtual EStateTreeRunStatus EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const override;
+	virtual EStateTreeRunStatus Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const override; 
+	virtual void ExitState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const override;
+};
+```
+
+
+  </p>
+</details>
+
+#### <!-- 26.09.15 -->
+<details> 
+  <summary>26.09.15</summary>
+  <p>
+
+Navigation System 가져오기   
+
+```cpp
+#include "NavigationSystem.h"
+
+UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+```
+
+<br>
+
+Foot, Leg IK 때문에 사망 몽타주의 발이 바닥에 고정돼서 어색하게 죽는 현상   
+
+Leg IK, Foot Placement의 Alpha를 죽었을 때 0.0으로 만들면 해결된다.(기본 1.0)   
+
+bIsDead 변수를 ABP에 만들고 HealthComponent의 죽음 판정 변수를 여기에 덮어씌우면 된다.   
+
+
+
+  </p>
+</details>
