@@ -13808,6 +13808,11 @@ Leg IK, Foot Placement의 Alpha를 죽었을 때 0.0으로 만들면 해결된�
 
 bIsDead 변수를 ABP에 만들고 HealthComponent의 죽음 판정 변수를 여기에 덮어씌우면 된다.   
 
+<br>
+
+<img width="1406" height="941" alt="Image" src="https://github.com/user-attachments/assets/5fa87743-16dd-40e3-9e82-ad6c1b32caa8" />
+
+Leg IK 때문에 바닥에 발바닥이 붙어서 어색하게 무릎이 꺾여있다.
 
 
   </p>
