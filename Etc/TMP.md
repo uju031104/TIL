@@ -13877,6 +13877,7 @@ Git 히스토리를 확인하면서 merge 전후를 비교해보기로 했다.
 ```
 git log --oneline --graph --decorate -20
 ```
+<img width="1057" height="634" alt="Image" src="https://github.com/user-attachments/assets/fc30d10a-b160-44c4-b408-ce6667dc47bb" />
 
 확인 결과 문제가 발생한 시점은 다음 merge였다.
 
@@ -13896,6 +13897,7 @@ Merge 자체가 원인인지 확인하기 위해 merge 직전 feat/character 상
 ```
 git switch --detach e1d4a393^^1
 ```
+<img width="831" height="138" alt="Image" src="https://github.com/user-attachments/assets/e1302809-63f0-4b1e-98ab-c618a3abad39" />
 
 이 상태에서는 정상적으로 동작했다.
 
@@ -13910,6 +13912,7 @@ Merge 과정에서 Character 관련 파일이 얼마나 변경됐는지 확인�
 ```
 git diff --name-status e1d4a393^^1 e1d4a393 -- Content/CreatePotion/Character
 ```
+<img width="1102" height="873" alt="Image" src="https://github.com/user-attachments/assets/f574679d-a1c0-46f1-a612-7f88c3dd30fb" />
 
 확인 결과 SandboxCharacter_CMC_ABP, Control Rig, Animation 등 Character 관련 .uasset이 상당히 많이 변경되어 있었다.   
 그래서 생각해봤더니 이전에 GASP 관련 Animation 파일을 정리하면서 폴더를 이동했고, Unreal Engine에서 해당 에셋들을 참조하던 파일들의 경로 또한 함께 변경된 상태였다.   
