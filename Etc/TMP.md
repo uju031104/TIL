@@ -13812,3 +13812,49 @@ bIsDead 변수를 ABP에 만들고 HealthComponent의 죽음 판정 변수를 �
 
   </p>
 </details>
+
+#### <!-- 26.09.21 -->
+<details> 
+  <summary>26.09.21</summary>
+  <p>
+
+충돌이 1개 잡혀있는데 merge이후 충돌이 해결됐다고 뜨고 uasset 파일이 Git LFS 포인터 파일로 바뀌는 현상(1.31MB -> 1KB)   
+
+ ```
+version 
+spec/v1 oid sha256:9b5588448f5d2bd715fda3e527e4f849df265efe197a88c7a64d92b777f4c81f size 1375223 oid sha256:3ef644afc30d8f51a78d31786e964fdb54135dd187e98d889f83c3bf6eb61be6 size 262
+ ```
+
+cmd로 들어가서 좀 더 자세히 확인을 해봤다.   
+
+```
+사진1
+```
+
+정확한 원인은 알 수 없지만 현재 내 브랜치와 UI 브랜치의 uasset의 충돌이 발견됐고 강제로 merge할 경우 262byte의 LFS 포인터 파일로 대체된다.   
+내 브랜치에서는 해당 에셋의 구조를 바꾼적이 없기 때문에 theirs(UI 브랜치)의 변경점을 가져오기로 결정했다.   
+
+<br>
+
+이후 merge할 브랜치 내용으로 덮어씌웠다.
+
+```
+git checkout --theirs -- Content/CreatePotion/Character/Player/Blueprints/SandboxCharacter_CMC.uasset
+git add Content/CreatePotion/Character/Player/Blueprints/SandboxCharacter_CMC.uasset
+```
+
+<br>
+
+```
+사진2
+```
+
+
+<br>
+
+
+
+
+
+  </p>
+</details>
