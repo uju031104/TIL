@@ -13832,9 +13832,9 @@ spec/v1 oid sha256:9b5588448f5d2bd715fda3e527e4f849df265efe197a88c7a64d92b777f4c
 
 cmd로 들어가서 좀 더 자세히 확인을 해봤다.   
 
-```
-사진1
-```
+<img width="1120" height="672" alt="Image" src="https://github.com/user-attachments/assets/554a60cc-2f4c-47b4-91eb-4a8fca4e8bd1" />
+
+<br>
 
 정확한 원인은 알 수 없지만 현재 내 브랜치와 UI 브랜치의 uasset의 충돌이 발견됐고 강제로 merge할 경우 262byte의 LFS 포인터 파일로 대체된다.   
 내 브랜치에서는 해당 에셋의 구조를 바꾼적이 없기 때문에 theirs(UI 브랜치)의 변경점을 가져오기로 결정했다.   
@@ -13850,16 +13850,19 @@ git add Content/CreatePotion/Character/Player/Blueprints/SandboxCharacter_CMC.ua
 
 <br>
 
-```
-사진2
-```
-
+<img width="1091" height="784" alt="Image" src="https://github.com/user-attachments/assets/742a6b5d-0338-4a27-b9fc-21f6998edf48" />
 
 <br>
 
+마지막으로 gitgub desktop으로 가서 충돌이 해결됐는지 한번 더 확인을 했다.   
 
+<br>
 
+<img width="1272" height="205" alt="Image" src="https://github.com/user-attachments/assets/3ff79961-4056-4b1a-a1be-10b2e0fd3227" />
 
+파일의 변경점이 정상적으로 잡힌다. 해결완료.
+
+<br>
 
   </p>
 </details>
