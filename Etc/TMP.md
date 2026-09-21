@@ -13860,9 +13860,90 @@ git add Content/CreatePotion/Character/Player/Blueprints/SandboxCharacter_CMC.ua
 
 <img width="1272" height="205" alt="Image" src="https://github.com/user-attachments/assets/3ff79961-4056-4b1a-a1be-10b2e0fd3227" />
 
-파일의 변경점이 정상적으로 잡힌다. 해결완료.
+파일의 변경점이 정상적으로 잡힌다. 해결완료.   
 
 <br>
+
+---
+
+<br>
+
+Git LFS 충돌 자체는 theirs의 .uasset을 선택하여 해결했지만, 이후 feat/character 브랜치에서 실행했을 때 캐릭터의 Anim Blueprint가 정상적으로 적용되지 않는 문제가 발생했다.   
+
+신기한 건 dev/develop이나 feat/UI-option 브랜치에서는 정상적으로 동작한다는 것이었다.   
+Git 히스토리를 확인하면서 merge 전후를 비교해보기로 했다.   
+
+**문제가 발생한 Merge Commit 확인**   
+```
+git log --oneline --graph --decorate -20
+```
+
+확인 결과 문제가 발생한 시점은 다음 merge였다.
+
+```
+e1d4a393 Merge branch 'dev/develop' into feat/character
+```
+
+즉, dev/develop을 feat/character에 merge한 이후부터 문제가 발생한 것으로 범위를 좁힐 수 있었다.   
+
+<br>
+
+**Merge 직전 상태에서 실행 테스트**   
+
+Merge 자체가 원인인지 확인하기 위해 merge 직전 feat/character 상태로 이동했다.   
+(Windows CMD에서는 ^가 escape 문자이기 때문에 ^^1로 입력)   
+
+```
+git switch --detach e1d4a393^^1
+```
+
+이 상태에서는 정상적으로 동작했다.
+
+따라서,
+```
+Merge 직전 feat/character → 정상
+Merge 이후 feat/character → 비정상
+```
+
+즉, e1d4a393 merge 과정에서 들어온 변경 중 하나가 원인이었다.   
+Merge 과정에서 Character 관련 파일이 얼마나 변경됐는지 확인했다.   
+```
+git diff --name-status e1d4a393^^1 e1d4a393 -- Content/CreatePotion/Character
+```
+
+확인 결과 SandboxCharacter_CMC_ABP, Control Rig, Animation 등 Character 관련 .uasset이 상당히 많이 변경되어 있었다.   
+그래서 생각해봤더니 이전에 GASP 관련 Animation 파일을 정리하면서 폴더를 이동했고, Unreal Engine에서 해당 에셋들을 참조하던 파일들의 경로 또한 함께 변경된 상태였다.   
+하지만 dev/develop 쪽에서는 아직 이전 폴더 구조와 참조를 사용하고 있었다.
+
+이 상태에서 feat/UI-option에서 CMC.uasset이 수정되었고, 해당 변경이 dev/develop에 반영된 뒤 다시 feat/character로 merge되었다.   
+
+결과적으로 다음과 같은 상황이 만들어진 것.   
+
+```
+feat/character
+- GASP 파일 이동 완료
+- 새로운 경로 기준으로 Reference 갱신
+
+dev/develop / feat/UI-option
+- 기존 GASP 경로 사용
+- 기존 경로를 참조하는 CMC.uasset 수정
+
+          ↓ Merge
+
+새로운 폴더 구조 + 이전 참조를 가진 CMC.uasset 혼재   
+```
+
+<br>
+
+**확인한 최종 원인**   
+
+SandboxCharacter_CMC.uasset을 직접 열어 확인한 결과, 내부의 Skeletal Mesh Reference가 해제되어 있었다.   
+해당 참조를 연결하니 해결 완료.   
+
+생각보다 너무 간단히 해결됐지만, 다양한 git 커맨드들을 사용하면서 구조 파악을 해보는 경험을 했다.   
+
+
+
 
   </p>
 </details>
